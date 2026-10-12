@@ -1043,7 +1043,10 @@ h3 {
 /* =====================================================
    Escritorio: barra lateral, baraja al centro y ficha fija
    ===================================================== */
-.deck-layout {
+/* En celular, estos dos contenedores no deben estorbar: sus hijos participan
+   directamente en el flex de la pantalla, si no la baraja se queda sin altura. */
+.deck-layout,
+.deck-col {
     display: contents;
 }
 
