@@ -49,7 +49,8 @@ const LIST_TABS = [
 ];
 
 export default function App() {
-    const { user, authReady, library, lists, photo, savePhoto, decide, forget, mergeLocalIntoCloud } = useLibrary();
+    const { user, authReady, libraryReady, library, lists, photo, savePhoto, decide, forget, mergeLocalIntoCloud } =
+        useLibrary();
     const [tab, setTab] = useState("movies");
     const [theme, setTheme] = useState(
         () => localStorage.getItem("theme") ?? (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"),
@@ -137,9 +138,23 @@ export default function App() {
 
     // Primera carga de cada baraja
     useEffect(() => {
-        if (decks[type].length === 0 && !error) loadMore(type, true);
+        // Hasta que no lleguen tus listas no se arma la baraja, para no repetir títulos
+        if (libraryReady && decks[type].length === 0 && !error) loadMore(type, true);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [type]);
+    }, [type, libraryReady]);
+
+    // Red de seguridad: si algo ya decidido se coló en la baraja, se quita
+    useEffect(() => {
+        setDecks((current) => {
+            const clean = {};
+            let changed = false;
+            for (const [kind, cards] of Object.entries(current)) {
+                clean[kind] = cards.filter((card) => card.resurfaced || !library[card.id]);
+                if (clean[kind].length !== cards.length) changed = true;
+            }
+            return changed ? clean : current;
+        });
+    }, [library]);
 
     // Cuando se está acabando la baraja, se piden más
     useEffect(() => {

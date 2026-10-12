@@ -47,6 +47,9 @@ export function useLibrary() {
     const [user, setUser] = useState(null);
     const [authReady, setAuthReady] = useState(!cloudEnabled);
     const [library, setLibrary] = useState(readLocal);
+    // `ready` evita que la baraja se arme antes de tener tus listas: si no,
+    // al recargar salen otra vez títulos que ya habías calificado.
+    const [libraryReady, setLibraryReady] = useState(!cloudEnabled);
     // Foto propia: si la pones, gana sobre la de Google
     const [photo, setPhoto] = useState(() => localStorage.getItem(PHOTO_KEY));
 
@@ -55,7 +58,12 @@ export function useLibrary() {
         return onAuthStateChanged(auth, (current) => {
             setUser(current);
             setAuthReady(true);
-            if (!current) setLibrary(readLocal());
+            if (!current) {
+                setLibrary(readLocal());
+                setLibraryReady(true); // sin sesión, lo local ya está listo
+            } else {
+                setLibraryReady(false); // con sesión, se espera a Firestore
+            }
         });
     }, []);
 
@@ -66,6 +74,7 @@ export function useLibrary() {
             const next = {};
             snapshot.forEach((document) => (next[document.id] = document.data()));
             setLibrary(next);
+            setLibraryReady(true);
         });
     }, [user]);
 
@@ -148,7 +157,7 @@ export function useLibrary() {
         };
     }, [library]);
 
-    return { user, authReady, cloudEnabled, library, lists, photo, savePhoto, decide, forget, mergeLocalIntoCloud };
+    return { user, authReady, libraryReady, cloudEnabled, library, lists, photo, savePhoto, decide, forget, mergeLocalIntoCloud };
 }
 
 const byRecent = (a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "");
