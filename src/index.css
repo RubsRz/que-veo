@@ -160,10 +160,11 @@ h3 {
 
 /* ===================== Tabs ===================== */
 .tabbar {
-    position: absolute;
+    position: fixed;
     left: 0;
     right: 0;
     bottom: 0;
+    z-index: 30;
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     height: var(--tabbar);
@@ -223,15 +224,21 @@ h3 {
     position: relative;
     flex: 1;
     min-height: 0;
+    display: grid;
+    place-items: center;
     margin-bottom: 12px;
+    container-type: size; /* para medir la tarjeta contra el alto disponible */
 }
 
+/* La tarjeta tiene la misma proporción del póster (2:3), así se ve completo:
+   toma el ancho disponible, salvo que el alto mande (pantallas anchas y bajitas) */
 .card {
     position: absolute;
-    inset: 0;
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
+    width: min(100%, 66.6cqh);
+    aspect-ratio: 2 / 3;
     border-radius: var(--radius);
     background: var(--surface-2);
     box-shadow: var(--shadow);
@@ -241,52 +248,47 @@ h3 {
     will-change: transform;
 }
 
-/* El póster se ve completo; la mini ficha va debajo */
-.card-media {
-    position: relative;
-    flex: 1;
-    min-height: 0;
-    display: grid;
-    place-items: center;
-    background: #05050a;
-    touch-action: none;
-}
-
-.card-poster {
+.card-poster,
+.card-fallback {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
-    object-fit: contain;
+    object-fit: cover;
 }
 
 .card-fallback {
     display: grid;
     place-items: center;
-    width: 100%;
-    height: 100%;
     padding: 24px;
+    background: linear-gradient(145deg, var(--surface-2), var(--surface));
     color: var(--muted);
     text-align: center;
 }
 
+/* La info va encima del póster, con degradado */
 .card-info {
-    max-height: 38%;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    padding: 14px 16px 16px;
-    background: var(--surface);
-    touch-action: pan-y;
-    transition: transform 0.15s ease;
-}
-
-.card-info::-webkit-scrollbar {
-    width: 0;
+    position: relative;
+    padding: 46px 18px 16px;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.94) 30%, rgba(0, 0, 0, 0.6) 65%, transparent);
+    color: #fff;
 }
 
 .card-more {
-    margin-top: 10px;
-    color: var(--muted);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+    color: rgba(255, 255, 255, 0.75);
     font-size: 0.75rem;
-    text-align: center;
+}
+
+.grabber {
+    width: 38px;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.5);
 }
 
 .card-flag {
@@ -323,15 +325,19 @@ h3 {
     flex-wrap: wrap;
     gap: 10px;
     margin-top: 2px;
-    color: var(--muted);
-    font-size: 0.82rem;
+    font-size: 0.84rem;
+    opacity: 0.85;
 }
 
 .card-overview {
     margin-top: 8px;
-    color: var(--muted);
     font-size: 0.87rem;
     line-height: 1.45;
+    opacity: 0.92;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
 .card-chips {
@@ -571,6 +577,68 @@ h3 {
         transform: translateY(24px);
         opacity: 0.6;
     }
+}
+
+.sheet-grabber {
+    display: block;
+    width: 40px;
+    height: 4px;
+    margin: -6px auto 14px;
+    border-radius: 999px;
+    background: var(--border);
+}
+
+.fab {
+    position: fixed;
+    right: max(16px, calc(50% - 244px));
+    bottom: calc(var(--tabbar) + 16px);
+    z-index: 25;
+    display: grid;
+    place-items: center;
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    font-size: 21px;
+    box-shadow: var(--shadow);
+}
+
+.search-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 45;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+}
+
+.search-bar {
+    display: flex;
+    gap: 8px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+}
+
+.search-bar input {
+    flex: 1;
+    height: 44px;
+    padding: 0 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    font-size: 0.95rem;
+}
+
+.search-bar input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.search-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
 }
 
 .sheet-head {

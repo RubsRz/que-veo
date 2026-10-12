@@ -4,6 +4,7 @@ import Poster from "./components/Poster";
 import DetailSheet from "./components/DetailSheet";
 import Tonight from "./components/Tonight";
 import StarsPrompt from "./components/StarsPrompt";
+import SearchSheet from "./components/SearchSheet";
 import { useLibrary } from "./lib/library";
 import { cloudEnabled, loginWithGoogle, logout } from "./lib/firebase";
 import { buildTaste, filterDeck, libraryStats, rankDeck } from "./lib/taste";
@@ -52,9 +53,9 @@ export default function App() {
     const [starFilter, setStarFilter] = useState(0);
     const [pendingLike, setPendingLike] = useState(null); // título esperando calificación
     const [lastAction, setLastAction] = useState(null); // para deshacer
-    const [query, setQuery] = useState("");
-    const [results, setResults] = useState([]);
-    const shown = useRef(0);
+    const [showSearch, setShowSearch] = useState(false);
+    const [pull, setPull] = useState(0); // 0..1, qué tanto jalaste la ficha hacia arriba
+    const pullRef = useRef(0);
     const [toast, setToast] = useState(null);
     const seen = useRef(new Set());
 
@@ -161,6 +162,18 @@ export default function App() {
         setToast("↩︎ Deshecho");
     }
 
+    /** La ficha sigue al dedo: al soltar, se abre si pasaste de la mitad. */
+    function handlePull(item, progress) {
+        if (progress === null) {
+            if (pullRef.current > 0.5) setOpenItem(item);
+            pullRef.current = 0;
+            setPull(0);
+            return;
+        }
+        pullRef.current = progress;
+        setPull(progress);
+    }
+
     /** Para "¿qué vemos hoy?": trae novedades del catálogo que no estén en tus listas. */
     const freshPool = useCallback(async () => {
         try {
@@ -191,17 +204,10 @@ export default function App() {
         return list.filter((entry) => (entry.stars ?? 0) >= starFilter);
     }, [lists, listTab, starFilter]);
 
-    // Buscador: para calificar algo específico sin esperar a que salga en la baraja
-    useEffect(() => {
-        if (query.trim().length < 3) return setResults([]);
-        const timer = setTimeout(async () => {
-            const [movies, shows] = await Promise.all([search(query, "movie"), search(query, "tv")]);
-            setResults([...movies, ...shows].sort((x, y) => y.popularity - x.popularity).slice(0, 12));
-        }, 350);
-        return () => clearTimeout(timer);
-    }, [query]);
     const deck = decks[type];
     const current = deck[0];
+    // Mientras jalas la ficha todavía no hay selección: se usa la tarjeta de arriba
+    const sheetItem = openItem ?? current;
 
     return (
         <div className="app">
@@ -265,6 +271,7 @@ export default function App() {
                                     genreNames={genres}
                                     onDecide={(decision) => handleDecide(item, decision)}
                                     onOpen={() => setOpenItem(item)}
+                                    onPull={(progress) => handlePull(item, progress)}
                                 />
                             ) : (
                                 <article key={item.id} className="card" style={{ transform: "scale(0.96) translateY(10px)", opacity: 0.75 }}>
@@ -283,7 +290,7 @@ export default function App() {
                                 <button type="button" className="action action-main" title="La vi y me gustó" onClick={() => handleDecide(current, "liked")}>👍</button>
                             </div>
                             <p className="action-hint">
-                                Arrastra el póster: → me gustó · ← paso · ↑ pendiente · ↓ no me gustó
+                                Arrastra: → me gustó · ← paso · ↓ no me gustó · ↑ ficha completa
                             </p>
                         </>
                     )}
@@ -299,28 +306,6 @@ export default function App() {
                             <small>Te elijo una de tus {lists.watchlist.length} pendientes</small>
                         </span>
                     </button>
-
-                    <input
-                        className="search-input"
-                        type="search"
-                        value={query}
-                        placeholder="Buscar una peli o serie para calificarla…"
-                        onChange={(event) => setQuery(event.target.value)}
-                    />
-
-                    {results.length > 0 && (
-                        <>
-                            <h2 className="section-title">Resultados</h2>
-                            <div className="grid-cards">
-                                {results.map((item) => (
-                                    <Poster key={item.id} item={{ ...item, stars: library[item.id]?.stars }} onClick={() => setOpenItem(item)} />
-                                ))}
-                            </div>
-                            <button type="button" className="btn btn-ghost" style={{ marginTop: 10 }} onClick={() => { setQuery(""); setResults([]); }}>
-                                Limpiar búsqueda
-                            </button>
-                        </>
-                    )}
 
                     <div className="list-tabs">
                         {LIST_TABS.map((item) => (
@@ -349,6 +334,10 @@ export default function App() {
                             ))}
                         </div>
                     )}
+
+                    <button type="button" className="fab" onClick={() => setShowSearch(true)} aria-label="Buscar un título">
+                        🔍
+                    </button>
 
                     {visibleList.length === 0 ? (
                         <div className="empty">
@@ -443,10 +432,12 @@ export default function App() {
                 ))}
             </nav>
 
-            {openItem && (
+            {(openItem || pull > 0) && sheetItem && (
                 <DetailSheet
-                    item={openItem}
-                    entry={library[openItem.id]}
+                    offset={openItem ? 0 : 1 - pull}
+                    dragging={!openItem}
+                    item={sheetItem}
+                    entry={library[sheetItem.id]}
                     onClose={() => setOpenItem(null)}
                     onDecide={handleDecide}
                     onForget={(id) => {
@@ -454,6 +445,17 @@ export default function App() {
                         setOpenItem(null);
                         setToast("Quitada de tus listas");
                     }}
+                />
+            )}
+
+            {showSearch && (
+                <SearchSheet
+                    library={library}
+                    onOpen={(item) => {
+                        setShowSearch(false);
+                        setOpenItem(item);
+                    }}
+                    onClose={() => setShowSearch(false)}
                 />
             )}
 

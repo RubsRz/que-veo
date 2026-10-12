@@ -9,7 +9,7 @@ const DECISION_LABEL = {
 };
 
 /** Ficha completa: sinopsis, reparto, dónde verla, calificación y acciones. */
-export default function DetailSheet({ item, entry, onClose, onDecide, onForget }) {
+export default function DetailSheet({ item, entry, onClose, onDecide, onForget, offset = 0, dragging = false }) {
     const [details, setDetails] = useState(null);
     const [stars, setStars] = useState(entry?.stars ?? 0);
 
@@ -33,8 +33,17 @@ export default function DetailSheet({ item, entry, onClose, onDecide, onForget }
     }
 
     return (
-        <div className="sheet" onClick={onClose}>
-            <div className="sheet-card" onClick={(event) => event.stopPropagation()}>
+        <div className="sheet" style={{ background: `rgba(0,0,0,${0.6 * (1 - offset)})` }} onClick={onClose}>
+            <div
+                className="sheet-card"
+                style={{
+                    transform: `translateY(${offset * 100}%)`,
+                    transition: dragging ? "none" : "transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1)",
+                    animation: "none",
+                }}
+                onClick={(event) => event.stopPropagation()}
+            >
+                <span className="sheet-grabber" aria-hidden="true" />
                 <div className="sheet-head">
                     <span className="poster" style={{ aspectRatio: "2/3" }}>
                         {full.poster ? <img src={full.poster} alt="" /> : <span className="poster-empty">{full.title}</span>}
