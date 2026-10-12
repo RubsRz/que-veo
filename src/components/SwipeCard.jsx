@@ -13,7 +13,7 @@ const PULL_OPEN = 140; // cuánto hay que jalar hacia arriba para abrir la ficha
  *   arriba  → jala la ficha completa, que sigue al dedo; si sueltas antes, se queda
  *             en pendiente solo si pasaste el umbral lateral de arriba.
  */
-export default function SwipeCard({ item, onDecide, onOpen, onPull, onPoster, genreNames }) {
+export default function SwipeCard({ item, onDecide, onOpen, onPull, onPoster, genreNames, friends = null }) {
     const [drag, setDrag] = useState({ x: 0, y: 0, active: false });
     const [leaving, setLeaving] = useState(null);
     const start = useRef(null);
@@ -119,6 +119,15 @@ export default function SwipeCard({ item, onDecide, onOpen, onPull, onPoster, ge
 
             <div className="card-info">
                 <span className="grabber grabber-top" aria-hidden="true" />
+                {friends && (
+                    <p className={`card-friends is-${friends.kind}`}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M9 11.5a3.2 3.2 0 100-6.4 3.2 3.2 0 000 6.4zM2.8 19a6.2 6.2 0 0112.4 0M16 5.6a3 3 0 010 5.8M17.5 19a6 6 0 00-1.2-3.6" />
+                        </svg>
+                        {friends.text}
+                        {friends.stars ? ` · ${friends.stars}★` : ""}
+                    </p>
+                )}
                 <h2 className="card-title">{item.title}</h2>
                 <p className="card-meta">
                     {item.year && <span>{item.year}</span>}

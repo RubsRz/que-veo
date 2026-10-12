@@ -1,5 +1,5 @@
-/** Póster con título y, si la calificaste, sus estrellas. */
-export default function Poster({ item, onClick }) {
+/** Póster con título y, si la calificaste, sus estrellas. `note` es para lo de tus amigos. */
+export default function Poster({ item, onClick, note = null }) {
     return (
         <button type="button" className="poster" onClick={onClick} title={item.title}>
             {item.poster ? (
@@ -12,6 +12,7 @@ export default function Poster({ item, onClick }) {
                 {item.title}
                 {item.year ? ` · ${item.year}` : ""}
             </span>
+            {note && <span className="poster-note">{note}</span>}
         </button>
     );
 }

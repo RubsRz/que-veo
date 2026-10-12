@@ -166,7 +166,7 @@ h3 {
     bottom: 0;
     z-index: 30;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     height: var(--tabbar);
     border-top: 1px solid var(--border);
     background: color-mix(in srgb, var(--surface) 92%, transparent);
@@ -1084,6 +1084,425 @@ h3 {
     border-radius: var(--radius-sm);
     background: var(--bg);
     font-size: 0.95rem;
+}
+
+/* ===================== Amigos ===================== */
+.code-box {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: linear-gradient(135deg, var(--accent-soft), transparent 70%), var(--surface);
+}
+
+.code-box .code {
+    display: block;
+    margin-top: 2px;
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: 2px;
+}
+
+.code-box .btn {
+    margin-left: auto;
+    min-height: 40px;
+}
+
+.code-form {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.code-form input,
+.field-input {
+    flex: 1;
+    width: 100%;
+    height: 46px;
+    padding: 0 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.95rem;
+    letter-spacing: 1px;
+}
+
+.field-input {
+    letter-spacing: normal;
+}
+
+.code-form input:focus,
+.field-input:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: -1px;
+}
+
+.section-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.section-head .section-title {
+    flex: 1;
+}
+
+.btn-small {
+    min-height: 34px;
+    padding: 0 12px;
+    font-size: 0.8rem;
+}
+
+.friend-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    margin-bottom: 8px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    text-align: left;
+}
+
+.friend-row.is-button:hover {
+    border-color: var(--accent);
+}
+
+.friend-row .grow {
+    flex: 1;
+    min-width: 0;
+}
+
+.friend-row b {
+    display: block;
+    font-size: 0.95rem;
+}
+
+.friend-row small {
+    display: block;
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 0.78rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.friend-row .chevron {
+    color: var(--muted);
+    font-size: 1.3rem;
+    line-height: 1;
+}
+
+.row-actions {
+    display: flex;
+    gap: 6px;
+    margin-left: auto;
+}
+
+.icon-btn.is-yes {
+    border-color: var(--like);
+    color: var(--like);
+}
+
+.list-dot {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent), #7c3aed);
+}
+
+.affinity-bar {
+    height: 8px;
+    margin-top: 12px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    overflow: hidden;
+}
+
+.affinity-bar span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--accent), #7c3aed);
+}
+
+/* Lo que opinan tus amigos, en la ficha */
+.friend-opinions {
+    display: grid;
+    gap: 8px;
+    list-style: none;
+}
+
+.friend-opinions li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--nope);
+    border-radius: 10px;
+    background: var(--surface-2);
+    font-size: 0.88rem;
+}
+
+.friend-opinions .avatar {
+    width: 30px;
+    height: 30px;
+    font-size: 0.75rem;
+}
+
+.friend-opinions li.is-liked {
+    border-left-color: var(--like);
+}
+
+.friend-opinions li.is-disliked {
+    border-left-color: var(--bad);
+}
+
+.friend-opinions li.is-watchlist {
+    border-left-color: var(--watch);
+}
+
+.friend-opinions em {
+    margin-left: auto;
+    color: var(--watch);
+    font-style: normal;
+    font-weight: 700;
+}
+
+/* Aviso en la tarjeta de la baraja */
+.card-friends {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    align-self: flex-start;
+    margin-bottom: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(34, 197, 94, 0.22);
+    border: 1px solid rgba(34, 197, 94, 0.5);
+    color: #fff;
+    font-size: 0.74rem;
+    font-weight: 700;
+    backdrop-filter: blur(6px);
+}
+
+.card-friends.is-watchlist {
+    background: rgba(245, 185, 66, 0.22);
+    border-color: rgba(245, 185, 66, 0.5);
+}
+
+.card-friends svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* Fichas de selección (amigos, listas) */
+.chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px 7px 7px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface-2);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.chip.is-ghost {
+    padding: 7px 14px;
+    color: var(--accent);
+    border-style: dashed;
+}
+
+.chip.is-on {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+
+.chip .avatar,
+.chip .list-dot {
+    width: 26px;
+    height: 26px;
+    font-size: 0.7rem;
+}
+
+.chip .list-dot {
+    border-radius: 8px;
+}
+
+/* Listas en conjunto */
+.members {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+}
+
+.member .avatar {
+    width: 34px;
+    height: 34px;
+    border: 2px solid var(--surface);
+}
+
+.member.is-add {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border: 1px dashed var(--border);
+    border-radius: 50%;
+    color: var(--muted);
+    font-size: 1.1rem;
+}
+
+.invite-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.shared-items {
+    display: grid;
+    gap: 8px;
+    margin-top: 14px;
+    list-style: none;
+}
+
+.shared-items li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface-2);
+}
+
+.shared-items li.is-watched {
+    opacity: 0.55;
+}
+
+.shared-items li.is-watched .shared-title b {
+    text-decoration: line-through;
+}
+
+.shared-items .tick {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+    border: 1.5px solid var(--border);
+    border-radius: 50%;
+    color: transparent;
+}
+
+.shared-items .tick svg {
+    width: 15px;
+    height: 15px;
+}
+
+.shared-items li.is-watched .tick {
+    border-color: var(--like);
+    background: var(--like);
+    color: #fff;
+}
+
+.shared-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+}
+
+.shared-title img {
+    width: 38px;
+    height: 57px;
+    flex-shrink: 0;
+    border-radius: 6px;
+    object-fit: cover;
+}
+
+.shared-title span {
+    min-width: 0;
+}
+
+.shared-items .icon-btn {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+}
+
+.shared-items .icon-btn svg {
+    width: 15px;
+    height: 15px;
+}
+
+/* Aviso de que hay algo nuevo en Amigos */
+.tabbar button .dot {
+    position: absolute;
+    top: 8px;
+    margin-left: 22px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+}
+
+.tabbar button {
+    position: relative;
+}
+
+.shared-title b {
+    display: block;
+    font-size: 0.9rem;
+}
+
+.shared-title small {
+    display: block;
+    color: var(--muted);
+    font-size: 0.76rem;
+}
+
+.poster-note {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    left: 6px;
+    padding: 3px 7px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.72);
+    color: #fff;
+    font-size: 0.66rem;
+    font-weight: 700;
+    line-height: 1.25;
+    text-align: left;
+}
+
+.btn.is-danger {
+    color: var(--bad);
 }
 
 @media (prefers-reduced-motion: reduce) {

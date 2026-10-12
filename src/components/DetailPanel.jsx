@@ -1,7 +1,7 @@
 import TitleDetails from "./TitleDetails";
 
 /** La ficha en escritorio: panel fijo a la derecha, siempre visible. */
-export default function DetailPanel({ item, entry, onDecide, onForget }) {
+export default function DetailPanel({ item, entry, onDecide, onForget, friendOpinions = [], onShare = null }) {
     if (!item) {
         return (
             <aside className="detail-panel">
@@ -15,7 +15,7 @@ export default function DetailPanel({ item, entry, onDecide, onForget }) {
 
     return (
         <aside className="detail-panel">
-            <TitleDetails item={item} entry={entry} onDecide={onDecide} onForget={onForget} />
+            <TitleDetails item={item} entry={entry} onDecide={onDecide} onForget={onForget} friendOpinions={friendOpinions} onShare={onShare} />
         </aside>
     );
 }

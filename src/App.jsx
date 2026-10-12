@@ -9,7 +9,13 @@ import ActionButtons from "./components/ActionButtons";
 import PosterViewer from "./components/PosterViewer";
 import DetailPanel from "./components/DetailPanel";
 import Avatar from "./components/Avatar";
+import FriendsScreen from "./components/FriendsScreen";
+import FriendSheet from "./components/FriendSheet";
+import SharedListSheet from "./components/SharedListSheet";
+import ShareSheet from "./components/ShareSheet";
 import { useLibrary } from "./lib/library";
+import { useFriends } from "./lib/friends";
+import { friendsBadge } from "./lib/social";
 import { toAvatarDataUrl } from "./lib/image";
 import { cloudEnabled, loginWithGoogle, logout } from "./lib/firebase";
 import { buildTaste, filterDeck, libraryStats, rankDeck } from "./lib/taste";
@@ -20,6 +26,7 @@ const ICONS = {
     movies: "M4 5.5h16v13H4zM4 10h16M9 5.5v4.5M15 5.5v4.5M9 14h6",
     tv: "M4 7.5h16v11H4zM9 3.5l3 4 3-4",
     lists: "M5 5h10v14H5zM15 7h4v12h-4M8 9h4M8 13h4",
+    friends: "M9 11.4a3.2 3.2 0 100-6.4 3.2 3.2 0 000 6.4zM2.6 19.5a6.4 6.4 0 0112.8 0M16.2 5.3a3.1 3.1 0 010 6M18 19.5a6.2 6.2 0 00-1.5-4",
     profile: "M12 11.5a3.6 3.6 0 100-7.2 3.6 3.6 0 000 7.2zM4.8 20a7.2 7.2 0 0114.4 0",
 };
 
@@ -27,6 +34,7 @@ const TABS = [
     { id: "movies", label: "Pelis" },
     { id: "tv", label: "Series" },
     { id: "lists", label: "Mis listas" },
+    { id: "friends", label: "Amigos" },
     { id: "profile", label: "Perfil" },
 ];
 
@@ -73,6 +81,9 @@ export default function App() {
     const [pull, setPull] = useState(0); // 0..1, qué tanto jalaste la ficha hacia arriba
     const pullRef = useRef(0);
     const [isDesktop, setIsDesktop] = useState(() => matchMedia("(min-width: 1000px)").matches);
+    const [openFriend, setOpenFriend] = useState(null);
+    const [openList, setOpenList] = useState(null);
+    const [shareItem, setShareItem] = useState(null); // título a compartir; `true` = solo crear lista
 
     useEffect(() => {
         const media = matchMedia("(min-width: 1000px)");
@@ -84,6 +95,27 @@ export default function App() {
     const seen = useRef(new Set());
     // Páginas seguidas que no trajeron nada nuevo: evita pedir sin fin cuando ya viste todo
     const emptyTries = useRef({ movie: 0, tv: 0 });
+
+    const social = useFriends(user, photo);
+    // Para el puntito de la pestaña: invitaciones sin contestar y recomendaciones sin abrir
+    const novedadesSociales = social.requests.length + social.recs.length;
+
+    /** Lo que les gustó a tus amigos y tú no has visto, para "¿qué vemos hoy?". */
+    const friendPicks = useMemo(() => {
+        const picks = [];
+        for (const [id, opinions] of Object.entries(social.ratings)) {
+            if (library[id]) continue;
+            const liked = opinions.filter((opinion) => opinion.decision === "liked");
+            if (!liked.length) continue;
+            const [best] = liked;
+            picks.push({
+                ...best.item,
+                friendNote: `A ${best.name} le gustó${best.stars ? ` · ${best.stars}★` : ""}`,
+            });
+        }
+        return picks;
+    }, [social.ratings, library]);
+    const friendOpinions = useCallback((item) => (item ? (social.ratings[item.id] ?? []) : []), [social.ratings]);
 
     const type = tab === "tv" ? "tv" : "movie";
     const taste = useMemo(() => buildTaste(Object.values(library)), [library]);
@@ -246,6 +278,29 @@ export default function App() {
         return () => window.removeEventListener("keydown", onKey);
     });
 
+    // Escape cierra lo que esté abierto encima, de arriba hacia abajo
+    useEffect(() => {
+        const onEscape = (event) => {
+            if (event.key !== "Escape") return;
+            const closers = [
+                [posterItem, () => setPosterItem(null)],
+                [pendingLike, () => setPendingLike(null)],
+                [shareItem, () => setShareItem(null)],
+                [openFriend, () => setOpenFriend(null)],
+                [openList, () => setOpenList(null)],
+                [showTonight, () => setShowTonight(false)],
+                [showSearch, () => setShowSearch(false)],
+                [openItem, () => setOpenItem(null)],
+            ];
+            const first = closers.find(([open]) => open);
+            if (!first) return;
+            event.preventDefault();
+            first[1]();
+        };
+        window.addEventListener("keydown", onEscape);
+        return () => window.removeEventListener("keydown", onEscape);
+    }, [posterItem, pendingLike, shareItem, openFriend, openList, showTonight, showSearch, openItem]);
+
     /** Cambiar la foto: se recorta y comprime aquí mismo antes de guardarla. */
     async function handlePhoto(event) {
         const file = event.target.files?.[0];
@@ -356,6 +411,7 @@ export default function App() {
                                     key={item.id}
                                     item={item}
                                     genreNames={genres}
+                                    friends={friendsBadge(social.ratings[item.id])}
                                     onDecide={(decision) => handleDecide(item, decision)}
                                     onOpen={() => setOpenItem(item)}
                                     onPull={(progress) => handlePull(item, progress)}
@@ -378,6 +434,8 @@ export default function App() {
                                 entry={current ? library[current.id] : null}
                                 onDecide={handleDecide}
                                 onForget={forget}
+                                friendOpinions={friendOpinions(current)}
+                                onShare={social.enabled ? setShareItem : null}
                             />
                         )}
                     </div>
@@ -454,6 +512,21 @@ export default function App() {
                         </div>
                     )}
                 </main>
+            )}
+
+            {tab === "friends" && (
+                <FriendsScreen
+                    cloudEnabled={cloudEnabled}
+                    user={user}
+                    social={social}
+                    library={library}
+                    onLogin={handleLogin}
+                    onOpenFriend={setOpenFriend}
+                    onOpenList={setOpenList}
+                    onOpenItem={setOpenItem}
+                    onNewList={() => setShareItem(true)}
+                    onToast={setToast}
+                />
             )}
 
             {tab === "profile" && (
@@ -550,6 +623,9 @@ export default function App() {
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                             <path d={ICONS[item.id]} />
                         </svg>
+                        {item.id === "friends" && novedadesSociales > 0 && (
+                            <span className="dot" aria-label={`${novedadesSociales} novedades`} />
+                        )}
                         {item.label}
                     </button>
                 ))}
@@ -568,6 +644,8 @@ export default function App() {
                         setOpenItem(null);
                         setToast("Quitada de tus listas");
                     }}
+                    friendOpinions={friendOpinions(sheetItem)}
+                    onShare={social.enabled ? setShareItem : null}
                 />
             )}
 
@@ -587,6 +665,7 @@ export default function App() {
             {showTonight && (
                 <Tonight
                     lists={lists}
+                    friendPicks={friendPicks}
                     onFresh={freshPool}
                     providers={providers}
                     onClose={() => setShowTonight(false)}
@@ -594,6 +673,52 @@ export default function App() {
                         setShowTonight(false);
                         setOpenItem(item);
                     }}
+                />
+            )}
+
+            {openFriend && (
+                <FriendSheet
+                    friend={openFriend}
+                    mine={library}
+                    theirs={social.libraries[openFriend.uid] ?? {}}
+                    onClose={() => setOpenFriend(null)}
+                    onOpenItem={(item) => {
+                        setOpenFriend(null);
+                        setOpenItem(item);
+                    }}
+                    onRecommend={(item, friend) =>
+                        social.recommend(item, friend).then(() => setToast(`Se la mandaste a ${friend.name}`))
+                    }
+                    onRemove={(friend) => {
+                        social.remove(friend);
+                        setOpenFriend(null);
+                        setToast("Listo, ya no son amigos");
+                    }}
+                />
+            )}
+
+            {openList && (
+                <SharedListSheet
+                    list={social.lists.find((list) => list.id === openList.id) ?? openList}
+                    friends={social.friends}
+                    social={social}
+                    onClose={() => setOpenList(null)}
+                    onOpenItem={(item) => {
+                        setOpenList(null);
+                        setOpenItem(item);
+                    }}
+                    onToast={setToast}
+                />
+            )}
+
+            {shareItem && (
+                <ShareSheet
+                    item={shareItem === true ? null : shareItem}
+                    friends={social.friends}
+                    lists={social.lists}
+                    social={social}
+                    onClose={() => setShareItem(null)}
+                    onToast={setToast}
                 />
             )}
 

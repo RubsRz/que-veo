@@ -21,20 +21,28 @@ const TIMES = [
 const SOURCES = [
     { id: "watchlist", label: "Mis pendientes" },
     { id: "liked", label: "Las que me gustaron" },
+    { id: "friends", label: "Lo que les gustó a mis amigos" },
     { id: "skipped", label: "Las que descarté" },
     { id: "fresh", label: "Nuevas (del catálogo)" },
 ];
 
 /** "¿Qué vemos hoy?": eliges de dónde sacarla, filtras y la app propone una. */
-export default function Tonight({ lists, providers, onClose, onOpen, onFresh }) {
+export default function Tonight({ lists, providers, onClose, onOpen, onFresh, friendPicks = [] }) {
     const [maxMinutes, setMaxMinutes] = useState(0);
     const [providerId, setProviderId] = useState(0);
-    const [sources, setSources] = useState({ watchlist: true, liked: true, skipped: false, fresh: true });
+    const [sources, setSources] = useState({ watchlist: true, liked: true, friends: true, skipped: false, fresh: true });
     const [pick, setPick] = useState(null);
     const [searched, setSearched] = useState(false);
     const [loading, setLoading] = useState(false);
 
     const toggle = (id) => setSources((current) => ({ ...current, [id]: !current[id] }));
+
+    /** Cuántos títulos hay en cada fuente; las novedades del catálogo no se pueden contar. */
+    const countOf = (id) => {
+        if (id === "fresh") return null;
+        if (id === "friends") return friendPicks.length;
+        return lists[id]?.length ?? 0;
+    };
 
     async function roll() {
         setLoading(true);
@@ -43,6 +51,7 @@ export default function Tonight({ lists, providers, onClose, onOpen, onFresh }) 
         const pool = [
             ...(sources.watchlist ? lists.watchlist : []),
             ...(sources.liked ? lists.liked : []),
+            ...(sources.friends ? friendPicks : []),
             ...(sources.skipped ? lists.skipped : []),
             ...(sources.fresh ? await onFresh() : []),
         ];
@@ -54,6 +63,7 @@ export default function Tonight({ lists, providers, onClose, onOpen, onFresh }) 
     const count = [
         sources.watchlist && lists.watchlist.length,
         sources.liked && lists.liked.length,
+        sources.friends && friendPicks.length,
         sources.skipped && lists.skipped.length,
     ].reduce((sum, value) => sum + (value || 0), 0);
 
@@ -71,7 +81,7 @@ export default function Tonight({ lists, providers, onClose, onOpen, onFresh }) 
                         <label key={source.id} className={`check ${sources[source.id] ? "is-on" : ""}`}>
                             <input type="checkbox" checked={sources[source.id]} onChange={() => toggle(source.id)} />
                             {source.label}
-                            {source.id !== "fresh" && <small> · {lists[source.id].length}</small>}
+                            {countOf(source.id) !== null && <small> · {countOf(source.id)}</small>}
                         </label>
                     ))}
                 </div>
@@ -146,6 +156,7 @@ export default function Tonight({ lists, providers, onClose, onOpen, onFresh }) 
 }
 
 function sourceLabel(item) {
+    if (item.friendNote) return item.friendNote;
     if (!item.decision) return "Del catálogo, no está en tus listas";
     return {
         watchlist: "De tus pendientes",

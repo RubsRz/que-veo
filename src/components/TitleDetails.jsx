@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getDetails } from "../lib/tmdb";
+import Avatar from "./Avatar";
 
 const DECISION_LABEL = {
     liked: "Ya la vi y me gustó",
@@ -8,11 +9,26 @@ const DECISION_LABEL = {
     skipped: "No me interesa",
 };
 
+/** Cómo se lee la opinión de un amigo en la ficha. */
+const FRIEND_LABEL = {
+    liked: "le gustó",
+    disliked: "no le gustó",
+    watchlist: "la tiene pendiente",
+};
+
 /**
  * Ficha de un título. Se usa igual en la hoja de celular y en el panel lateral
  * de escritorio, para no tener dos versiones del mismo contenido.
  */
-export default function TitleDetails({ item, entry, onDecide, onForget, showActions = true }) {
+export default function TitleDetails({
+    item,
+    entry,
+    onDecide,
+    onForget,
+    showActions = true,
+    friendOpinions = [],
+    onShare = null,
+}) {
     const [details, setDetails] = useState(null);
     const [stars, setStars] = useState(entry?.stars ?? 0);
 
@@ -88,6 +104,23 @@ export default function TitleDetails({ item, entry, onDecide, onForget, showActi
                 </>
             )}
 
+            {friendOpinions.length > 0 && (
+                <>
+                    <h3 className="section-title">Qué dicen tus amigos</h3>
+                    <ul className="friend-opinions">
+                        {friendOpinions.map((opinion) => (
+                            <li key={opinion.uid} className={`is-${opinion.decision}`}>
+                                <Avatar user={{ displayName: opinion.name }} photo={opinion.photo} />
+                                <span>
+                                    <b>{opinion.name}</b> {FRIEND_LABEL[opinion.decision]}
+                                </span>
+                                {opinion.stars ? <em>{opinion.stars}★</em> : null}
+                            </li>
+                        ))}
+                    </ul>
+                </>
+            )}
+
             {showActions && (
                 <>
                     <h3 className="section-title">Tu calificación</h3>
@@ -121,6 +154,11 @@ export default function TitleDetails({ item, entry, onDecide, onForget, showActi
                         <button type="button" className="btn btn-ghost" onClick={() => onDecide(full, "skipped")}>
                             No me interesa
                         </button>
+                        {onShare && (
+                            <button type="button" className="btn btn-ghost btn-wide" onClick={() => onShare(full)}>
+                                Compartir con un amigo
+                            </button>
+                        )}
                         {entry && onForget && (
                             <button type="button" className="btn btn-ghost btn-wide" onClick={() => onForget(full.id)}>
                                 Quitar de mis listas

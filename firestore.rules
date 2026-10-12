@@ -1,0 +1,129 @@
+rules_version = '2';
+
+/**
+ * Reglas de QuéVeo.
+ *
+ * La idea: cada quien manda sobre sus cosas, y un amigo aceptado puede *leer*
+ * tus calificaciones, nunca escribirlas. Las listas en conjunto son de quienes
+ * están dentro.
+ *
+ * Para publicarlas:  npx firebase deploy --only firestore:rules
+ */
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function me() {
+      return request.auth.uid;
+    }
+
+    // El id de una amistad es siempre el mismo par ordenado
+    function pairId(a, b) {
+      return a < b ? a + '_' + b : b + '_' + a;
+    }
+
+    function friendship(other) {
+      return get(/databases/$(database)/documents/friendships/$(pairId(me(), other)));
+    }
+
+    function isFriendOf(other) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/friendships/$(pairId(me(), other)))
+        && friendship(other).data.status == 'accepted';
+    }
+
+    // Nombre y foto: los ve cualquiera que ya tenga tu id (por código o por ser tu amigo).
+    // Nadie puede pedir "dame todos los perfiles": solo se consulta de uno en uno.
+    match /profiles/{uid} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow write: if signedIn() && me() == uid;
+    }
+
+    // El directorio de códigos: solo se puede consultar el código exacto que te pasaron.
+    // Nadie puede sobrescribir un código ajeno porque escribir sobre un documento
+    // que ya existe cuenta como update, y eso está cerrado.
+    match /codes/{code} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn() && request.resource.data.uid == me();
+      allow update: if signedIn() && resource.data.uid == me();
+      allow delete: if signedIn() && resource.data.uid == me();
+    }
+
+    match /users/{uid} {
+      // El perfil interno (tu foto propia) es solo tuyo
+      allow read, write: if signedIn() && me() == uid;
+
+      // Tus calificaciones: tuyas para escribir, de tus amigos para leer
+      match /items/{itemId} {
+        allow read: if signedIn() && (me() == uid || isFriendOf(uid));
+        allow write: if signedIn() && me() == uid;
+      }
+
+      // Lo que un amigo te recomienda. Él puede dejarla, tú leerla y quitarla.
+      match /recs/{itemId} {
+        allow read, delete: if signedIn() && me() == uid;
+        allow create, update: if signedIn()
+          && isFriendOf(uid)
+          && request.resource.data.from.uid == me();
+      }
+    }
+
+    // Amistades: un documento por par, con los dos uids dentro
+    match /friendships/{pair} {
+      // Preguntar por una amistad que todavía no existe es parte del flujo normal
+      // (antes de invitar), así que no puede tronar
+      allow read: if signedIn() && (resource == null || me() in resource.data.members);
+
+      allow create: if signedIn()
+        && request.resource.data.members.size() == 2
+        && me() in request.resource.data.members
+        && request.resource.data.requestedBy == me()
+        && request.resource.data.status == 'pending'
+        && pair == pairId(request.resource.data.members[0], request.resource.data.members[1]);
+
+      // Lo único que se puede cambiar es aceptar una invitación pendiente, y solo
+      // lo hace quien la recibió. Para cualquier otra cosa se borra y se vuelve a
+      // invitar; así nadie puede regresar a "pendiente" una amistad ya hecha.
+      allow update: if signedIn()
+        && me() in resource.data.members
+        && resource.data.status == 'pending'
+        && resource.data.requestedBy != me()
+        && request.resource.data.status == 'accepted'
+        && request.resource.data.members == resource.data.members
+        && request.resource.data.requestedBy == resource.data.requestedBy;
+
+      allow delete: if signedIn() && me() in resource.data.members;
+    }
+
+    // Listas en conjunto: de quienes están dentro
+    match /lists/{listId} {
+      function members() {
+        return get(/databases/$(database)/documents/lists/$(listId)).data.members;
+      }
+
+      allow read, delete: if signedIn() && me() in resource.data.members;
+      allow create: if signedIn()
+        && me() in request.resource.data.members
+        && request.resource.data.createdBy == me();
+      // Desde dentro solo se puede invitar a más gente (sin sacar a nadie) o salirse
+      // uno mismo: así nadie se queda con la lista corriendo a los demás.
+      allow update: if signedIn()
+        && me() in resource.data.members
+        && (
+             (me() in request.resource.data.members
+               && request.resource.data.members.toSet().hasAll(resource.data.members.toSet()))
+             || request.resource.data.members.toSet()
+                  == resource.data.members.toSet().difference([me()].toSet())
+           );
+
+      match /items/{itemId} {
+        allow read, write: if signedIn() && me() in members();
+      }
+    }
+  }
+}

@@ -3,8 +3,17 @@
  * igual guardando todo en el navegador. Con ellas, se sincroniza entre dispositivos.
  */
 import { initializeApp } from "firebase/app";
-import { GoogleAuthProvider, getAuth, signInWithPopup, signOut } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import {
+    GoogleAuthProvider,
+    connectAuthEmulator,
+    createUserWithEmailAndPassword,
+    getAuth,
+    signInWithEmailAndPassword,
+    signInWithPopup,
+    signOut,
+    updateProfile,
+} from "firebase/auth";
+import { connectFirestoreEmulator, getFirestore } from "firebase/firestore";
 
 const config = {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -25,6 +34,24 @@ if (cloudEnabled) {
     app = initializeApp(config);
     auth = getAuth(app);
     db = getFirestore(app);
+
+    // Para desarrollo: `VITE_EMULATOR=1 npm run dev` apunta todo al emulador local,
+    // así se pueden probar las reglas y el flujo de amigos sin tocar los datos reales.
+    if (import.meta.env.DEV && import.meta.env.VITE_EMULATOR === "1") {
+        connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
+        connectFirestoreEmulator(db, "127.0.0.1", 8080);
+        window.__qv = {
+            async signInAs(email, name) {
+                try {
+                    await createUserWithEmailAndPassword(auth, email, "prueba1234");
+                } catch {
+                    await signInWithEmailAndPassword(auth, email, "prueba1234");
+                }
+                if (name && auth.currentUser.displayName !== name) await updateProfile(auth.currentUser, { displayName: name });
+                return auth.currentUser.uid;
+            },
+        };
+    }
 }
 
 export { auth, db };

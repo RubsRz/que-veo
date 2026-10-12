@@ -1,7 +1,7 @@
 import TitleDetails from "./TitleDetails";
 
 /** La ficha en celular: hoja que sube desde abajo y puede seguir al dedo. */
-export default function DetailSheet({ item, entry, onClose, onDecide, onForget, offset = 0, dragging = false }) {
+export default function DetailSheet({ item, entry, onClose, onDecide, onForget, offset = 0, dragging = false, friendOpinions = [], onShare = null }) {
     return (
         <div className="sheet" style={{ background: `rgba(0,0,0,${0.6 * (1 - offset)})` }} onClick={onClose}>
             <div
@@ -14,7 +14,7 @@ export default function DetailSheet({ item, entry, onClose, onDecide, onForget, 
                 onClick={(event) => event.stopPropagation()}
             >
                 <span className="sheet-grabber" aria-hidden="true" />
-                <TitleDetails item={item} entry={entry} onDecide={onDecide} onForget={onForget} />
+                <TitleDetails item={item} entry={entry} onDecide={onDecide} onForget={onForget} friendOpinions={friendOpinions} onShare={onShare} />
                 <button type="button" className="btn btn-ghost btn-wide" style={{ marginTop: 10 }} onClick={onClose}>
                     Cerrar
                 </button>
