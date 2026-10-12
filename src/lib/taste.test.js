@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTaste, filterDeck, genreScores, libraryStats, rankDeck, tonightPick } from "./taste";
+import { buildTaste, filterDeck, genreScores, libraryStats, rankDeck, tonightPick, translateGenres } from "./taste";
 
 const SCIFI = 878;
 const COMEDY = 35;
@@ -148,5 +148,62 @@ describe("resumen", () => {
         expect(stats.averageStars).toBe(4);
         expect(stats.hours).toBe(6); // 3 títulos vistos de 120 min
         expect(stats.topGenres[0].name).toBe("Ciencia ficción");
+    });
+});
+
+// TMDB usa géneros distintos en cine y en televisión. Pedirle series con géneros de
+// película devuelve CERO resultados, así que esto evita que la baraja se quede vacía.
+const ACTION_TV = 10759;
+const SCIFI_TV = 10765;
+
+describe("géneros de cine contra géneros de series", () => {
+    it("acción y aventura de cine se vuelven Action & Adventure en series", () => {
+        expect(translateGenres([28, 12], "tv")).toEqual([ACTION_TV]);
+    });
+
+    it("ciencia ficción y fantasía se vuelven Sci-Fi & Fantasy", () => {
+        expect(translateGenres([878, 14], "tv")).toEqual([SCIFI_TV]);
+    });
+
+    it("los que existen igual en los dos lados se quedan como están", () => {
+        expect(translateGenres([COMEDY, 18, 16], "tv").sort()).toEqual([16, 18, COMEDY].sort());
+    });
+
+    it("terror y suspenso no existen en series: se descartan en vez de vaciar la baraja", () => {
+        expect(translateGenres([HORROR, 53], "tv")).toEqual([]);
+    });
+
+    it("y de regreso: Action & Adventure se abre en acción y aventura", () => {
+        expect(translateGenres([ACTION_TV], "movie").sort()).toEqual([12, 28]);
+    });
+
+    it("los de telenovela o noticias no se cuelan al cine", () => {
+        expect(translateGenres([10764, 10766], "movie")).toEqual([]);
+    });
+
+    it("el perfil para series nunca pide géneros que solo existen en cine", () => {
+        const pelis = Array.from({ length: 8 }, () => entry("liked", [SCIFI, 28], { type: "movie", stars: 5 }));
+        const taste = buildTaste(pelis, { forType: "tv" });
+        expect(taste.ready).toBe(true);
+        expect(taste.genres.length).toBeGreaterThan(0);
+        expect(taste.genres).not.toContain(SCIFI);
+        expect(taste.genres).not.toContain(28);
+        expect(taste.genres).toContain(SCIFI_TV);
+    });
+
+    it("y el de películas tampoco pide géneros de televisión", () => {
+        const series = Array.from({ length: 8 }, () => entry("liked", [ACTION_TV], { type: "tv", stars: 5 }));
+        const taste = buildTaste(series, { forType: "movie" });
+        expect(taste.genres).not.toContain(ACTION_TV);
+        expect(taste.genres).toContain(28);
+    });
+
+    it("lo que calificaste del mismo tipo pesa más", () => {
+        const mezcla = [
+            ...Array.from({ length: 4 }, () => entry("liked", [COMEDY], { type: "movie" })),
+            ...Array.from({ length: 4 }, () => entry("liked", [16], { type: "tv" })),
+        ];
+        expect(buildTaste(mezcla, { forType: "tv" }).topGenres[0].id).toBe(16);
+        expect(buildTaste(mezcla, { forType: "movie" }).topGenres[0].id).toBe(COMEDY);
     });
 });

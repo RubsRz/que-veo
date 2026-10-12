@@ -80,7 +80,13 @@ export async function discover({ type = "movie", page = 1, taste = {}, filters =
     }
     if (filters.maxRuntime && type === "movie") params["with_runtime.lte"] = String(filters.maxRuntime);
 
-    const data = await call(`/discover/${type}`, params);
+    let data = await call(`/discover/${type}`, params);
+
+    // Si los filtros dejaron la baraja vacía, mejor traer lo popular que no traer nada
+    if (!data.results.length && (params.with_genres || params.without_genres)) {
+        const { with_genres: _genres, without_genres: _avoid, ...loose } = params;
+        data = await call(`/discover/${type}`, loose);
+    }
     return data.results.map((item) => normalize(item, type));
 }
 

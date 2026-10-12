@@ -20,9 +20,47 @@ const WEIGHTS = {
     disliked: -1,
 };
 
+/**
+ * TMDB no usa los mismos géneros en cine que en televisión: "Acción" (28) no existe
+ * en series, donde es "Action & Adventure" (10759). Si se le piden series con géneros
+ * de película, devuelve CERO resultados, así que hay que traducir.
+ */
+const TO_TV = { 28: 10759, 12: 10759, 878: 10765, 14: 10765, 10752: 10768, 36: 10768 };
+const TO_MOVIE = { 10759: [28, 12], 10765: [878, 14], 10768: [10752, 36] };
+// Los que solo existen de un lado y no tienen equivalente (terror, suspenso, romance…)
+const ONLY_MOVIE = new Set([27, 53, 10749, 10402]);
+const ONLY_TV = new Set([10762, 10763, 10764, 10766, 10767]);
+
+/** Pasa una lista de géneros al vocabulario de películas o al de series. */
+export function translateGenres(ids = [], forType) {
+    const out = new Set();
+    for (const id of ids) {
+        if (forType === "tv") {
+            if (ONLY_MOVIE.has(id)) continue;
+            if (ONLY_TV.has(id) || TO_MOVIE[id]) out.add(id);
+            else out.add(TO_TV[id] ?? id);
+        } else {
+            if (ONLY_TV.has(id)) continue;
+            if (TO_MOVIE[id]) TO_MOVIE[id].forEach((movieId) => out.add(movieId));
+            else if (ONLY_MOVIE.has(id) || !TO_TV[id]) out.add(id);
+            else out.add(id);
+        }
+    }
+    return [...out];
+}
+
+/** Lo que calificaste del mismo tipo pesa más que lo del otro, pero todo cuenta. */
+const SAME_TYPE_BOOST = 1.6;
+
+const adaptEntry = (entry, forType) => ({
+    ...entry,
+    genreIds: translateGenres(entry.genreIds ?? [], forType),
+    boost: entry.type === forType ? SAME_TYPE_BOOST : 1,
+});
+
 /** Una calificación de 1 a 5 estrellas ajusta el peso: 5★ cuenta el doble que 3★. */
 function entryWeight(entry) {
-    const base = WEIGHTS[entry.decision] ?? 0;
+    const base = (WEIGHTS[entry.decision] ?? 0) * (entry.boost ?? 1);
     if (entry.decision !== "liked" || !entry.stars) return base;
     return base * (entry.stars / 3);
 }
@@ -62,13 +100,15 @@ export function favoriteDecade(entries) {
  * Mientras no haya suficientes calificaciones, no filtra nada: primero hay que
  * conocer a la persona (arranque en frío).
  */
-export function buildTaste(entries, { minEntries = 5, topGenres = 4 } = {}) {
+export function buildTaste(entries, { minEntries = 5, topGenres = 4, forType = null } = {}) {
     const rated = entries.filter((entry) => entry.decision);
     if (rated.length < minEntries) {
         return { ready: false, rated: rated.length, genres: [], avoidGenres: [], decade: null, topGenres: [] };
     }
 
-    const scores = genreScores(rated);
+    // Con `forType` el perfil se traduce al vocabulario de ese tipo: si no, pedirle
+    // series a TMDB con géneros de cine no devuelve nada.
+    const scores = genreScores(forType ? rated.map((entry) => adaptEntry(entry, forType)) : rated);
     const liked = scores.filter((genre) => genre.score > 0.25).slice(0, topGenres);
     const avoided = scores.filter((genre) => genre.score < -0.5).map((genre) => genre.id);
 

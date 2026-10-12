@@ -118,7 +118,16 @@ export default function App() {
     const friendOpinions = useCallback((item) => (item ? (social.ratings[item.id] ?? []) : []), [social.ratings]);
 
     const type = tab === "tv" ? "tv" : "movie";
-    const taste = useMemo(() => buildTaste(Object.values(library)), [library]);
+    // Un perfil por tipo: los géneros de cine y los de televisión no son los mismos,
+    // así que lo que calificaste se traduce al vocabulario del que estés viendo.
+    const tastes = useMemo(() => {
+        const entries = Object.values(library);
+        return {
+            movie: buildTaste(entries, { forType: "movie" }),
+            tv: buildTaste(entries, { forType: "tv" }),
+        };
+    }, [library]);
+    const taste = tastes[type];
 
     useEffect(() => {
         document.documentElement.dataset.theme = theme;
@@ -251,12 +260,16 @@ export default function App() {
     /** Para "¿qué vemos hoy?": trae novedades del catálogo que no estén en tus listas. */
     const freshPool = useCallback(async () => {
         try {
-            const found = await discover({ type: "movie", page: 1 + Math.floor(Math.random() * 5), taste });
+            const found = await discover({
+                type: "movie",
+                page: 1 + Math.floor(Math.random() * 5),
+                taste: tastes.movie,
+            });
             return filterDeck(found, library, new Set());
         } catch {
             return [];
         }
-    }, [taste, library]);
+    }, [tastes, library]);
 
     // En escritorio se puede decidir con el teclado
     useEffect(() => {
