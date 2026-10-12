@@ -8,6 +8,7 @@ import SearchSheet from "./components/SearchSheet";
 import ActionButtons from "./components/ActionButtons";
 import PosterViewer from "./components/PosterViewer";
 import DetailPanel from "./components/DetailPanel";
+import Avatar from "./components/Avatar";
 import { useLibrary } from "./lib/library";
 import { cloudEnabled, loginWithGoogle, logout } from "./lib/firebase";
 import { buildTaste, filterDeck, libraryStats, rankDeck } from "./lib/taste";
@@ -415,7 +416,7 @@ export default function App() {
                 <main className="screen">
                     <div className="profile-card">
                         <div className="profile-top">
-                            {user?.photoURL ? <img className="avatar" src={user.photoURL} alt="" /> : <span className="avatar" />}
+                            <Avatar user={user} />
                             <div>
                                 <b>{user?.displayName ?? "Sin cuenta"}</b>
                                 <p className="sheet-meta">

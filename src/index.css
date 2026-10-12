@@ -834,6 +834,16 @@ h3 {
     border-radius: 50%;
     background: var(--surface-2);
     object-fit: cover;
+    flex-shrink: 0;
+}
+
+.avatar-initials {
+    display: grid;
+    place-items: center;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 0.95rem;
 }
 
 .stats-grid {
