@@ -1115,6 +1115,10 @@ h3 {
     display: flex;
     gap: 8px;
     margin-top: 10px;
+    /* aire antes de la siguiente sección, para que no se lea como una sola cosa */
+    padding-bottom: 14px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--border);
 }
 
 .code-form input,
@@ -1146,6 +1150,12 @@ h3 {
     display: flex;
     align-items: center;
     gap: 10px;
+    margin-top: 22px;
+}
+
+.section-head + .notice,
+.section-head + .friend-row {
+    margin-top: 2px;
 }
 
 .section-head .section-title {
