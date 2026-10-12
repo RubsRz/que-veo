@@ -1039,3 +1039,157 @@ h3 {
         transition: none !important;
     }
 }
+
+/* =====================================================
+   Escritorio: barra lateral, baraja al centro y ficha fija
+   ===================================================== */
+.deck-layout {
+    display: contents;
+}
+
+.keys-hint {
+    display: none;
+}
+
+@media (min-width: 1000px) {
+    .app {
+        display: grid;
+        grid-template-columns: 220px 1fr;
+        grid-template-rows: 1fr;
+        max-width: 1240px;
+        height: 100svh;
+        border-inline: 1px solid var(--border);
+    }
+
+    /* El encabezado se integra a la barra lateral */
+    .topbar {
+        grid-column: 1;
+        grid-row: 1;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 18px;
+        padding: 22px 18px;
+        border-right: 1px solid var(--border);
+    }
+
+    .topbar-actions {
+        margin-left: 0;
+        margin-top: auto;
+    }
+
+    /* Las tabs pasan de barra inferior a menú vertical */
+    .tabbar {
+        position: static;
+        grid-column: 1;
+        grid-row: 1;
+        align-self: start;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        height: auto;
+        margin-top: 76px;
+        padding: 0 12px;
+        border: 0;
+        background: none;
+        backdrop-filter: none;
+    }
+
+    .tabbar button {
+        grid-template-columns: auto 1fr;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 11px 14px;
+        border-radius: 12px;
+        font-size: 0.95rem;
+        text-align: left;
+    }
+
+    .tabbar button:hover {
+        background: var(--surface-2);
+        color: var(--text);
+    }
+
+    .tabbar button.is-active {
+        background: var(--accent-soft);
+    }
+
+    .tabbar button svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    .screen {
+        grid-column: 2;
+        grid-row: 1;
+        padding: 22px 24px 28px;
+    }
+
+    .screen.is-deck {
+        overflow: hidden;
+    }
+
+    /* Baraja a la izquierda, ficha siempre visible a la derecha */
+    .deck-layout {
+        display: grid;
+        grid-template-columns: minmax(280px, 380px) 1fr;
+        gap: 28px;
+        flex: 1;
+        min-height: 0;
+    }
+
+    .deck-col {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .detail-panel {
+        overflow-y: auto;
+        padding: 20px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+    }
+
+    .detail-panel .sheet-actions {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .keys-hint {
+        display: block;
+        margin-top: 10px;
+        color: var(--muted);
+        font-size: 0.78rem;
+        text-align: center;
+    }
+
+    .keys-hint kbd {
+        padding: 2px 6px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--surface-2);
+        font-family: inherit;
+        font-size: 0.74rem;
+    }
+
+    /* En escritorio la lupa va en la barra lateral, no flotando */
+    .fab {
+        right: 24px;
+        bottom: 24px;
+    }
+
+    .grid-cards {
+        grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+    }
+
+    .sheet-card {
+        max-width: 560px;
+        border-radius: 20px;
+        margin-bottom: 4vh;
+    }
+
+    .sheet {
+        align-items: center;
+    }
+}

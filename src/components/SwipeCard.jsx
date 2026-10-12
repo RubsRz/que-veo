@@ -111,7 +111,7 @@ export default function SwipeCard({ item, onDecide, onOpen, onPull, onPoster, ge
                 </div>
             )}
 
-            {item.resurfaced && <p className="card-flag">↩︎ La descartaste, pero creo que te puede gustar</p>}
+            {item.resurfaced && <p className="card-flag">La descartaste, pero creo que te puede gustar</p>}
 
             <span className="stamp stamp-like" style={stamp("liked")}>Me gustó</span>
             <span className="stamp stamp-nope" style={stamp("skipped")}>Paso</span>

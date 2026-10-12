@@ -7,6 +7,7 @@ import StarsPrompt from "./components/StarsPrompt";
 import SearchSheet from "./components/SearchSheet";
 import ActionButtons from "./components/ActionButtons";
 import PosterViewer from "./components/PosterViewer";
+import DetailPanel from "./components/DetailPanel";
 import { useLibrary } from "./lib/library";
 import { cloudEnabled, loginWithGoogle, logout } from "./lib/firebase";
 import { buildTaste, filterDeck, libraryStats, rankDeck } from "./lib/taste";
@@ -67,6 +68,14 @@ export default function App() {
     const [posterItem, setPosterItem] = useState(null);
     const [pull, setPull] = useState(0); // 0..1, qué tanto jalaste la ficha hacia arriba
     const pullRef = useRef(0);
+    const [isDesktop, setIsDesktop] = useState(() => matchMedia("(min-width: 1000px)").matches);
+
+    useEffect(() => {
+        const media = matchMedia("(min-width: 1000px)");
+        const update = (event) => setIsDesktop(event.matches);
+        media.addEventListener("change", update);
+        return () => media.removeEventListener("change", update);
+    }, []);
     const [toast, setToast] = useState(null);
     const seen = useRef(new Set());
 
@@ -153,10 +162,10 @@ export default function App() {
         setPendingLike(null);
         setToast(
             {
-                liked: stars ? `👍 Guardada con ${stars}★` : "👍 Guardada en “me gustaron”",
-                watchlist: "🕑 A pendientes",
-                disliked: "👎 Anotada",
-                skipped: "🚫 Casi no te la vuelvo a mostrar",
+                liked: stars ? `Guardada con ${stars}★` : "Guardada en “me gustaron”",
+                watchlist: "Guardada en pendientes",
+                disliked: "Anotada como “no me gustó”",
+                skipped: "Casi no te la vuelvo a mostrar",
             }[decision],
         );
     }
@@ -170,7 +179,7 @@ export default function App() {
         else await forget(item.id);
         setDecks((current) => ({ ...current, [item.type]: [item, ...current[item.type]] }));
         setLastAction(null);
-        setToast("↩︎ Deshecho");
+        setToast("Deshecho");
     }
 
     /** La ficha sigue al dedo: al soltar, se abre si pasaste de la mitad. */
@@ -194,6 +203,26 @@ export default function App() {
             return [];
         }
     }, [taste, library]);
+
+    // En escritorio se puede decidir con el teclado
+    useEffect(() => {
+        if (!isDesktop) return;
+        const onKey = (event) => {
+            if (event.target.matches("input, textarea, select")) return;
+            const card = decks[type][0];
+            if (!card || openItem || pendingLike) return;
+            const map = { ArrowRight: "liked", ArrowLeft: "skipped", ArrowUp: "watchlist", ArrowDown: "disliked" };
+            if (map[event.key]) {
+                event.preventDefault();
+                handleDecide(card, map[event.key]);
+            } else if (event.key === "z" && (event.metaKey || event.ctrlKey)) {
+                event.preventDefault();
+                undo();
+            }
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    });
 
     async function handleLogin() {
         try {
@@ -254,7 +283,9 @@ export default function App() {
                         )}
                     </div>
 
-                    <div className="deck">
+                    <div className="deck-layout">
+                        <div className="deck-col">
+                            <div className="deck">
                         {error && (
                             <div className="empty">
                                 <b>No se pudo cargar el catálogo</b>
@@ -293,10 +324,23 @@ export default function App() {
                         })}
                     </div>
 
-                    {current && (
-                        <>
-                            <ActionButtons onDecide={(decision) => handleDecide(current, decision)} />
-                        </>
+                            {current && <ActionButtons onDecide={(decision) => handleDecide(current, decision)} />}
+                        </div>
+
+                        {isDesktop && (
+                            <DetailPanel
+                                item={current}
+                                entry={current ? library[current.id] : null}
+                                onDecide={handleDecide}
+                                onForget={forget}
+                            />
+                        )}
+                    </div>
+                    {isDesktop && current && (
+                        <p className="keys-hint">
+                            Atajos: <kbd>←</kbd> paso · <kbd>→</kbd> me gustó · <kbd>↑</kbd> pendiente ·{" "}
+                            <kbd>↓</kbd> no me gustó · <kbd>⌘Z</kbd> deshacer
+                        </p>
                     )}
                 </main>
             )}
