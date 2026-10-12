@@ -6,4 +6,8 @@
   # Vite 8 pide Node 20.19+ o 22.12+; la versión por defecto de Netlify puede ser menor
   NODE_VERSION = "22"
 
-# Las variables VITE_TMDB_KEY y VITE_FIREBASE_* se configuran en el panel de Netlify
+  # Vite mete todas las variables VITE_* dentro del JavaScript que llega al navegador,
+  # así que el escáner de secretos de Netlify las detecta y tumba el build.
+  # Estas son públicas por diseño (la llave de TMDB es de solo lectura y la config web de
+  # Firebase es pública: lo que protege los datos son las reglas de Firestore).
+  SECRETS_SCAN_OMIT_KEYS = "VITE_TMDB_KEY,VITE_FIREBASE_API_KEY,VITE_FIREBASE_AUTH_DOMAIN,VITE_FIREBASE_PROJECT_ID,VITE_FIREBASE_STORAGE_BUCKET,VITE_FIREBASE_SENDER_ID,VITE_FIREBASE_APP_ID"
