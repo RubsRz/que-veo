@@ -241,13 +241,66 @@ h3 {
     will-change: transform;
 }
 
-.card-poster,
-.card-fallback {
-    position: absolute;
-    inset: 0;
+/* El póster se ve completo; la mini ficha va debajo */
+.card-media {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    place-items: center;
+    background: #05050a;
+    touch-action: none;
+}
+
+.card-poster {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
+}
+
+.card-fallback {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    padding: 24px;
+    color: var(--muted);
+    text-align: center;
+}
+
+.card-info {
+    max-height: 38%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 14px 16px 16px;
+    background: var(--surface);
+    touch-action: pan-y;
+    transition: transform 0.15s ease;
+}
+
+.card-info::-webkit-scrollbar {
+    width: 0;
+}
+
+.card-more {
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: 0.75rem;
+    text-align: center;
+}
+
+.card-flag {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    right: 12px;
+    padding: 7px 12px;
+    border-radius: 999px;
+    background: rgba(245, 185, 66, 0.92);
+    color: #231a05;
+    font-size: 0.76rem;
+    font-weight: 700;
+    text-align: center;
 }
 
 .card-fallback {
@@ -260,15 +313,8 @@ h3 {
     font-size: 0.9rem;
 }
 
-.card-shade {
-    position: relative;
-    padding: 20px 18px 18px;
-    background: linear-gradient(to top, rgba(0, 0, 0, 0.92) 25%, rgba(0, 0, 0, 0.55) 60%, transparent);
-    color: #fff;
-}
-
 .card-title {
-    font-size: 1.5rem;
+    font-size: 1.25rem;
     font-weight: 700;
 }
 
@@ -276,20 +322,16 @@ h3 {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
-    margin-top: 4px;
-    font-size: 0.85rem;
-    opacity: 0.85;
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 0.82rem;
 }
 
 .card-overview {
     margin-top: 8px;
-    font-size: 0.88rem;
+    color: var(--muted);
+    font-size: 0.87rem;
     line-height: 1.45;
-    opacity: 0.9;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
 }
 
 .card-chips {
@@ -747,6 +789,74 @@ h3 {
 
 .notice b {
     color: var(--text);
+}
+
+.checks {
+    display: grid;
+    gap: 6px;
+}
+
+.check {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 0.88rem;
+    cursor: pointer;
+}
+
+.check.is-on {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+}
+
+.check input {
+    width: 17px;
+    height: 17px;
+    accent-color: var(--accent);
+}
+
+.check small {
+    margin-left: auto;
+    color: var(--muted);
+}
+
+.stars-prompt {
+    text-align: center;
+}
+
+.stars-big {
+    justify-content: center;
+    margin-top: 16px;
+}
+
+.stars-big button {
+    font-size: 38px;
+}
+
+.stars-label {
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 0.85rem;
+    min-height: 20px;
+}
+
+.search-input {
+    width: 100%;
+    height: 44px;
+    margin-top: 12px;
+    padding: 0 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    font-size: 0.95rem;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: var(--accent);
 }
 
 .toast {

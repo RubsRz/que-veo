@@ -3,16 +3,28 @@ import SwipeCard from "./components/SwipeCard";
 import Poster from "./components/Poster";
 import DetailSheet from "./components/DetailSheet";
 import Tonight from "./components/Tonight";
+import StarsPrompt from "./components/StarsPrompt";
 import { useLibrary } from "./lib/library";
 import { cloudEnabled, loginWithGoogle, logout } from "./lib/firebase";
 import { buildTaste, filterDeck, libraryStats, rankDeck } from "./lib/taste";
-import { discover, getGenres, getProviders, hasApiKey } from "./lib/tmdb";
+import { discover, getGenres, getProviders, hasApiKey, search } from "./lib/tmdb";
 
 const TABS = [
     { id: "movies", icon: "🎬", label: "Pelis" },
     { id: "tv", icon: "📺", label: "Series" },
     { id: "lists", icon: "📚", label: "Mis listas" },
     { id: "profile", icon: "👤", label: "Perfil" },
+];
+
+// Cada tantas tarjetas se cuela una que habías descartado, por si cambiaste de opinión
+const RESURFACE_EVERY = 12;
+
+const STAR_FILTERS = [
+    { id: 0, label: "Todas" },
+    { id: 5, label: "5★" },
+    { id: 4, label: "4★ o más" },
+    { id: 3, label: "3★ o más" },
+    { id: -1, label: "Sin calificar" },
 ];
 
 const LIST_TABS = [
@@ -37,6 +49,12 @@ export default function App() {
     const [openItem, setOpenItem] = useState(null);
     const [showTonight, setShowTonight] = useState(false);
     const [listTab, setListTab] = useState("liked");
+    const [starFilter, setStarFilter] = useState(0);
+    const [pendingLike, setPendingLike] = useState(null); // título esperando calificación
+    const [lastAction, setLastAction] = useState(null); // para deshacer
+    const [query, setQuery] = useState("");
+    const [results, setResults] = useState([]);
+    const shown = useRef(0);
     const [toast, setToast] = useState(null);
     const seen = useRef(new Set());
 
@@ -71,8 +89,17 @@ export default function App() {
             setError(null);
             try {
                 const page = reset ? 1 : pages[kind];
-                const results = await discover({ type: kind, page, taste });
-                const fresh = rankDeck(filterDeck(results, library, seen.current), taste);
+                const found = await discover({ type: kind, page, taste });
+                const fresh = rankDeck(filterDeck(found, library, seen.current), taste);
+
+                // Se mete una descartada de vez en cuando, marcada para que se note
+                const skipped = Object.values(library).filter(
+                    (entry) => entry.decision === "skipped" && entry.type === kind && !seen.current.has(entry.id),
+                );
+                if (skipped.length && fresh.length > 3) {
+                    const revive = skipped[Math.floor(Math.random() * skipped.length)];
+                    fresh.splice(3, 0, { ...revive, resurfaced: true });
+                }
                 setDecks((current) => ({ ...current, [kind]: reset ? fresh : [...current[kind], ...fresh] }));
                 setPages((current) => ({ ...current, [kind]: page + 1 }));
             } catch (requestError) {
@@ -96,15 +123,53 @@ export default function App() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [decks, type]);
 
-    async function handleDecide(item, decision, stars = null) {
+    function handleDecide(item, decision, stars = null) {
+        // "Me gustó" sin calificación todavía: primero se piden las estrellas
+        if (decision === "liked" && stars === null && !library[item.id]?.stars) {
+            setPendingLike(item);
+            return;
+        }
+        return commitDecision(item, decision, stars);
+    }
+
+    async function commitDecision(item, decision, stars = null) {
         seen.current.add(item.id);
+        setLastAction({ item, previous: library[item.id] ?? null });
         await decide(item, decision, stars);
         setDecks((current) => ({ ...current, [item.type]: current[item.type].filter((card) => card.id !== item.id) }));
         setOpenItem(null);
+        setPendingLike(null);
         setToast(
-            { liked: "👍 Guardada en “me gustaron”", watchlist: "🕑 A pendientes", disliked: "👎 Anotada", skipped: "🚫 No te la vuelvo a mostrar" }[decision],
+            {
+                liked: stars ? `👍 Guardada con ${stars}★` : "👍 Guardada en “me gustaron”",
+                watchlist: "🕑 A pendientes",
+                disliked: "👎 Anotada",
+                skipped: "🚫 Casi no te la vuelvo a mostrar",
+            }[decision],
         );
     }
+
+    /** Deshacer la última decisión: la regresa a la baraja y restaura lo que estaba antes. */
+    async function undo() {
+        if (!lastAction) return;
+        const { item, previous } = lastAction;
+        seen.current.delete(item.id);
+        if (previous) await decide(previous, previous.decision, previous.stars);
+        else await forget(item.id);
+        setDecks((current) => ({ ...current, [item.type]: [item, ...current[item.type]] }));
+        setLastAction(null);
+        setToast("↩︎ Deshecho");
+    }
+
+    /** Para "¿qué vemos hoy?": trae novedades del catálogo que no estén en tus listas. */
+    const freshPool = useCallback(async () => {
+        try {
+            const found = await discover({ type: "movie", page: 1 + Math.floor(Math.random() * 5), taste });
+            return filterDeck(found, library, new Set());
+        } catch {
+            return [];
+        }
+    }, [taste, library]);
 
     async function handleLogin() {
         try {
@@ -117,6 +182,24 @@ export default function App() {
     }
 
     const stats = useMemo(() => libraryStats(library, genres), [library, genres]);
+
+    // Filtro por estrellas, solo en "me gustaron"
+    const visibleList = useMemo(() => {
+        const list = lists[listTab];
+        if (listTab !== "liked" || starFilter === 0) return list;
+        if (starFilter === -1) return list.filter((entry) => !entry.stars);
+        return list.filter((entry) => (entry.stars ?? 0) >= starFilter);
+    }, [lists, listTab, starFilter]);
+
+    // Buscador: para calificar algo específico sin esperar a que salga en la baraja
+    useEffect(() => {
+        if (query.trim().length < 3) return setResults([]);
+        const timer = setTimeout(async () => {
+            const [movies, shows] = await Promise.all([search(query, "movie"), search(query, "tv")]);
+            setResults([...movies, ...shows].sort((x, y) => y.popularity - x.popularity).slice(0, 12));
+        }, 350);
+        return () => clearTimeout(timer);
+    }, [query]);
     const deck = decks[type];
     const current = deck[0];
 
@@ -147,6 +230,11 @@ export default function App() {
                         <span className="action-hint" style={{ marginLeft: "auto", paddingBottom: 0 }}>
                             {taste.ready ? `A tu gusto · ${taste.rated} calificadas` : `Calibrando · ${taste.rated}/5`}
                         </span>
+                        {lastAction && (
+                            <button type="button" className="icon-btn" onClick={undo} title="Deshacer la última">
+                                ↩︎
+                            </button>
+                        )}
                     </div>
 
                     <div className="deck">
@@ -194,7 +282,9 @@ export default function App() {
                                 <button type="button" className="action" title="Pendiente por ver" onClick={() => handleDecide(current, "watchlist")}>🕑</button>
                                 <button type="button" className="action action-main" title="La vi y me gustó" onClick={() => handleDecide(current, "liked")}>👍</button>
                             </div>
-                            <p className="action-hint">Arrastra: → me gustó · ← paso · ↑ pendiente · ↓ no me gustó</p>
+                            <p className="action-hint">
+                                Arrastra el póster: → me gustó · ← paso · ↑ pendiente · ↓ no me gustó
+                            </p>
                         </>
                     )}
                 </main>
@@ -210,6 +300,28 @@ export default function App() {
                         </span>
                     </button>
 
+                    <input
+                        className="search-input"
+                        type="search"
+                        value={query}
+                        placeholder="Buscar una peli o serie para calificarla…"
+                        onChange={(event) => setQuery(event.target.value)}
+                    />
+
+                    {results.length > 0 && (
+                        <>
+                            <h2 className="section-title">Resultados</h2>
+                            <div className="grid-cards">
+                                {results.map((item) => (
+                                    <Poster key={item.id} item={{ ...item, stars: library[item.id]?.stars }} onClick={() => setOpenItem(item)} />
+                                ))}
+                            </div>
+                            <button type="button" className="btn btn-ghost" style={{ marginTop: 10 }} onClick={() => { setQuery(""); setResults([]); }}>
+                                Limpiar búsqueda
+                            </button>
+                        </>
+                    )}
+
                     <div className="list-tabs">
                         {LIST_TABS.map((item) => (
                             <button
@@ -223,14 +335,33 @@ export default function App() {
                         ))}
                     </div>
 
-                    {lists[listTab].length === 0 ? (
+                    {listTab === "liked" && lists.liked.length > 0 && (
+                        <div className="list-tabs" style={{ marginTop: 8 }}>
+                            {STAR_FILTERS.map((filter) => (
+                                <button
+                                    key={filter.id}
+                                    type="button"
+                                    className={starFilter === filter.id ? "is-active" : ""}
+                                    onClick={() => setStarFilter(filter.id)}
+                                >
+                                    {filter.label}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
+                    {visibleList.length === 0 ? (
                         <div className="empty">
-                            <b>Todavía no hay nada aquí</b>
-                            <p>Califica algunas películas en la pestaña de Pelis y aparecerán en esta lista.</p>
+                            <b>{lists[listTab].length ? "Nada con ese filtro" : "Todavía no hay nada aquí"}</b>
+                            <p>
+                                {lists[listTab].length
+                                    ? "Prueba con otra calificación."
+                                    : "Califica algunas películas en la pestaña de Pelis y aparecerán en esta lista."}
+                            </p>
                         </div>
                     ) : (
                         <div className="grid-cards" style={{ marginTop: 12 }}>
-                            {lists[listTab].map((entry) => (
+                            {visibleList.map((entry) => (
                                 <Poster key={entry.id} item={entry} onClick={() => setOpenItem(entry)} />
                             ))}
                         </div>
@@ -328,13 +459,22 @@ export default function App() {
 
             {showTonight && (
                 <Tonight
-                    watchlist={lists.watchlist}
+                    lists={lists}
+                    onFresh={freshPool}
                     providers={providers}
                     onClose={() => setShowTonight(false)}
                     onOpen={(item) => {
                         setShowTonight(false);
                         setOpenItem(item);
                     }}
+                />
+            )}
+
+            {pendingLike && (
+                <StarsPrompt
+                    item={pendingLike}
+                    onSave={(stars) => commitDecision(pendingLike, "liked", stars)}
+                    onCancel={() => setPendingLike(null)}
                 />
             )}
 

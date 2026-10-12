@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { tonightPick } from "../lib/taste";
-import Poster from "./Poster";
 
 const TIMES = [
     { value: 0, label: "El tiempo que sea" },
@@ -9,23 +8,63 @@ const TIMES = [
     { value: 150, label: "Menos de 2 h 30" },
 ];
 
-/** "¿Qué vemos hoy?": filtra tus pendientes por tiempo y plataforma y propone una. */
-export default function Tonight({ watchlist, providers, onClose, onOpen }) {
+const SOURCES = [
+    { id: "watchlist", label: "Mis pendientes" },
+    { id: "liked", label: "Las que me gustaron" },
+    { id: "skipped", label: "Las que descarté" },
+    { id: "fresh", label: "Nuevas (del catálogo)" },
+];
+
+/** "¿Qué vemos hoy?": eliges de dónde sacarla, filtras y la app propone una. */
+export default function Tonight({ lists, providers, onClose, onOpen, onFresh }) {
     const [maxMinutes, setMaxMinutes] = useState(0);
     const [providerId, setProviderId] = useState(0);
+    const [sources, setSources] = useState({ watchlist: true, liked: true, skipped: true, fresh: true });
     const [pick, setPick] = useState(null);
     const [searched, setSearched] = useState(false);
+    const [loading, setLoading] = useState(false);
 
-    function roll() {
-        setPick(tonightPick(watchlist, { maxMinutes: maxMinutes || null, providerId: providerId || null }));
+    const toggle = (id) => setSources((current) => ({ ...current, [id]: !current[id] }));
+
+    async function roll() {
+        setLoading(true);
         setSearched(true);
+
+        const pool = [
+            ...(sources.watchlist ? lists.watchlist : []),
+            ...(sources.liked ? lists.liked : []),
+            ...(sources.skipped ? lists.skipped : []),
+            ...(sources.fresh ? await onFresh() : []),
+        ];
+
+        setPick(tonightPick(pool, { maxMinutes: maxMinutes || null, providerId: providerId || null }));
+        setLoading(false);
     }
+
+    const count = [
+        sources.watchlist && lists.watchlist.length,
+        sources.liked && lists.liked.length,
+        sources.skipped && lists.skipped.length,
+    ].reduce((sum, value) => sum + (value || 0), 0);
 
     return (
         <div className="sheet" onClick={onClose}>
             <div className="sheet-card" onClick={(event) => event.stopPropagation()}>
                 <h2>¿Qué vemos hoy?</h2>
-                <p className="sheet-meta">De tus {watchlist.length} pendientes, una que se acomode a tu rato.</p>
+                <p className="sheet-meta">
+                    {count} títulos tuyos{sources.fresh ? " más novedades del catálogo" : ""}.
+                </p>
+
+                <h3 className="section-title">De dónde la saco</h3>
+                <div className="checks">
+                    {SOURCES.map((source) => (
+                        <label key={source.id} className={`check ${sources[source.id] ? "is-on" : ""}`}>
+                            <input type="checkbox" checked={sources[source.id]} onChange={() => toggle(source.id)} />
+                            {source.label}
+                            {source.id !== "fresh" && <small> · {lists[source.id].length}</small>}
+                        </label>
+                    ))}
+                </div>
 
                 <div className="filters-row">
                     <label className="field">
@@ -49,7 +88,7 @@ export default function Tonight({ watchlist, providers, onClose, onOpen }) {
                     )}
                 </div>
 
-                {pick ? (
+                {pick && (
                     <>
                         <h3 className="section-title">Te propongo</h3>
                         <div className="sheet-head">
@@ -63,19 +102,22 @@ export default function Tonight({ watchlist, providers, onClose, onOpen }) {
                                         .filter(Boolean)
                                         .join(" · ")}
                                 </p>
+                                <p className="sheet-meta">{sourceLabel(pick)}</p>
                                 <button type="button" className="card-link" style={{ color: "var(--accent)" }} onClick={() => onOpen(pick)}>
                                     Ver ficha
                                 </button>
                             </div>
                         </div>
                     </>
-                ) : searched ? (
-                    <p className="notice">Nada de tu lista cumple con esos filtros. Prueba con más tiempo u otra plataforma.</p>
-                ) : null}
+                )}
+
+                {searched && !pick && !loading && (
+                    <p className="notice">Nada cumple con esos filtros. Prueba con más tiempo, otra plataforma o incluye más listas.</p>
+                )}
 
                 <div className="sheet-actions">
-                    <button type="button" className="btn btn-primary btn-wide" onClick={roll}>
-                        🎲 {pick ? "Proponme otra" : "Elegir por mí"}
+                    <button type="button" className="btn btn-primary btn-wide" onClick={roll} disabled={loading}>
+                        {loading ? "Buscando…" : pick ? "🎲 Proponme otra" : "🎲 Elegir por mí"}
                     </button>
                     <button type="button" className="btn btn-ghost btn-wide" onClick={onClose}>
                         Cerrar
@@ -84,4 +126,14 @@ export default function Tonight({ watchlist, providers, onClose, onOpen }) {
             </div>
         </div>
     );
+}
+
+function sourceLabel(item) {
+    if (!item.decision) return "Del catálogo, no está en tus listas";
+    return {
+        watchlist: "De tus pendientes",
+        liked: `Ya la viste${item.stars ? ` y le diste ${item.stars}★` : ""}`,
+        skipped: "La habías descartado",
+        disliked: "No te gustó",
+    }[item.decision];
 }
