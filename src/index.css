@@ -182,9 +182,9 @@ h3 {
     font-weight: 600;
 }
 
-.tabbar button span {
-    font-size: 19px;
-    line-height: 1;
+.tabbar button svg {
+    width: 22px;
+    height: 22px;
 }
 
 .tabbar button.is-active {
@@ -266,29 +266,51 @@ h3 {
     text-align: center;
 }
 
-/* La info va encima del póster, con degradado */
+/* La info va encima del póster, con degradado. Solo título y datos:
+   la sinopsis aparece al deslizar hacia arriba. */
 .card-info {
     position: relative;
-    padding: 46px 18px 16px;
-    background: linear-gradient(to top, rgba(0, 0, 0, 0.94) 30%, rgba(0, 0, 0, 0.6) 65%, transparent);
+    padding: 52px 18px 18px;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.92) 30%, rgba(0, 0, 0, 0.5) 70%, transparent);
     color: #fff;
 }
 
-.card-more {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    margin-top: 12px;
-    color: rgba(255, 255, 255, 0.75);
-    font-size: 0.75rem;
-}
-
 .grabber {
-    width: 38px;
+    display: block;
+    width: 36px;
     height: 4px;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.5);
+    background: rgba(255, 255, 255, 0.45);
+}
+
+.grabber-top {
+    margin: 0 auto 12px;
+}
+
+/* El póster a pantalla completa */
+.poster-viewer {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: grid;
+    place-items: center;
+    gap: 14px;
+    padding: 24px;
+    background: rgba(0, 0, 0, 0.92);
+    backdrop-filter: blur(6px);
+}
+
+.poster-viewer img {
+    max-width: 100%;
+    max-height: 82svh;
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+}
+
+.poster-viewer p {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.85rem;
+    text-align: center;
 }
 
 .card-flag {
@@ -408,32 +430,66 @@ h3 {
 
 .deck-actions {
     display: flex;
+    align-items: center;
     justify-content: center;
-    gap: 12px;
-    padding-bottom: 6px;
+    gap: 14px;
+    padding: 4px 0 10px;
 }
 
-.action {
+/* Botones de vidrio: translúcidos, con desenfoque y sin emojis */
+.glass-action {
     display: grid;
     place-items: center;
-    width: 54px;
-    height: 54px;
-    border: 1px solid var(--border);
+    width: 52px;
+    height: 52px;
     border-radius: 50%;
-    background: var(--surface);
-    font-size: 21px;
-    box-shadow: var(--shadow);
-    transition: transform 0.12s;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.07);
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    color: rgba(255, 255, 255, 0.82);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 8px 20px -12px rgba(0, 0, 0, 0.9);
+    transition: transform 0.14s ease, color 0.2s, border-color 0.2s, background-color 0.2s;
 }
 
-.action:active {
-    transform: scale(0.92);
+:root[data-theme="light"] .glass-action {
+    border-color: rgba(10, 10, 20, 0.1);
+    background: rgba(255, 255, 255, 0.6);
+    color: rgba(20, 20, 30, 0.72);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 10px 22px -16px rgba(10, 10, 20, 0.6);
 }
 
-.action-main {
-    width: 62px;
-    height: 62px;
-    font-size: 25px;
+.glass-action svg {
+    width: 23px;
+    height: 23px;
+}
+
+.glass-action:hover {
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.28);
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.glass-action:active {
+    transform: scale(0.93);
+}
+
+.glass-action.is-like {
+    width: 60px;
+    height: 60px;
+    color: var(--accent);
+    border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+    background: color-mix(in srgb, var(--accent) 16%, rgba(255, 255, 255, 0.05));
+}
+
+.glass-action.is-like svg {
+    width: 26px;
+    height: 26px;
+}
+
+.glass-action.is-watch {
+    color: var(--watch);
+    border-color: color-mix(in srgb, var(--watch) 35%, transparent);
 }
 
 .action-hint {
@@ -586,6 +642,11 @@ h3 {
     margin: -6px auto 14px;
     border-radius: 999px;
     background: var(--border);
+}
+
+.fab svg {
+    width: 23px;
+    height: 23px;
 }
 
 .fab {

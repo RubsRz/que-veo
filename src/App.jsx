@@ -5,16 +5,26 @@ import DetailSheet from "./components/DetailSheet";
 import Tonight from "./components/Tonight";
 import StarsPrompt from "./components/StarsPrompt";
 import SearchSheet from "./components/SearchSheet";
+import ActionButtons from "./components/ActionButtons";
+import PosterViewer from "./components/PosterViewer";
 import { useLibrary } from "./lib/library";
 import { cloudEnabled, loginWithGoogle, logout } from "./lib/firebase";
 import { buildTaste, filterDeck, libraryStats, rankDeck } from "./lib/taste";
 import { discover, getGenres, getProviders, hasApiKey, search } from "./lib/tmdb";
 
+// Iconos de línea, al tono del resto de la interfaz
+const ICONS = {
+    movies: "M4 5.5h16v13H4zM4 10h16M9 5.5v4.5M15 5.5v4.5M9 14h6",
+    tv: "M4 7.5h16v11H4zM9 3.5l3 4 3-4",
+    lists: "M5 5h10v14H5zM15 7h4v12h-4M8 9h4M8 13h4",
+    profile: "M12 11.5a3.6 3.6 0 100-7.2 3.6 3.6 0 000 7.2zM4.8 20a7.2 7.2 0 0114.4 0",
+};
+
 const TABS = [
-    { id: "movies", icon: "🎬", label: "Pelis" },
-    { id: "tv", icon: "📺", label: "Series" },
-    { id: "lists", icon: "📚", label: "Mis listas" },
-    { id: "profile", icon: "👤", label: "Perfil" },
+    { id: "movies", label: "Pelis" },
+    { id: "tv", label: "Series" },
+    { id: "lists", label: "Mis listas" },
+    { id: "profile", label: "Perfil" },
 ];
 
 // Cada tantas tarjetas se cuela una que habías descartado, por si cambiaste de opinión
@@ -54,6 +64,7 @@ export default function App() {
     const [pendingLike, setPendingLike] = useState(null); // título esperando calificación
     const [lastAction, setLastAction] = useState(null); // para deshacer
     const [showSearch, setShowSearch] = useState(false);
+    const [posterItem, setPosterItem] = useState(null);
     const [pull, setPull] = useState(0); // 0..1, qué tanto jalaste la ficha hacia arriba
     const pullRef = useRef(0);
     const [toast, setToast] = useState(null);
@@ -272,6 +283,7 @@ export default function App() {
                                     onDecide={(decision) => handleDecide(item, decision)}
                                     onOpen={() => setOpenItem(item)}
                                     onPull={(progress) => handlePull(item, progress)}
+                                    onPoster={() => setPosterItem(item)}
                                 />
                             ) : (
                                 <article key={item.id} className="card" style={{ transform: "scale(0.96) translateY(10px)", opacity: 0.75 }}>
@@ -283,15 +295,7 @@ export default function App() {
 
                     {current && (
                         <>
-                            <div className="deck-actions">
-                                <button type="button" className="action" title="No me interesa" onClick={() => handleDecide(current, "skipped")}>🚫</button>
-                                <button type="button" className="action" title="La vi y no me gustó" onClick={() => handleDecide(current, "disliked")}>👎</button>
-                                <button type="button" className="action" title="Pendiente por ver" onClick={() => handleDecide(current, "watchlist")}>🕑</button>
-                                <button type="button" className="action action-main" title="La vi y me gustó" onClick={() => handleDecide(current, "liked")}>👍</button>
-                            </div>
-                            <p className="action-hint">
-                                Arrastra: → me gustó · ← paso · ↓ no me gustó · ↑ ficha completa
-                            </p>
+                            <ActionButtons onDecide={(decision) => handleDecide(current, decision)} />
                         </>
                     )}
                 </main>
@@ -300,7 +304,9 @@ export default function App() {
             {tab === "lists" && (
                 <main className="screen">
                     <button type="button" className="tonight-btn" onClick={() => setShowTonight(true)}>
-                        🍿
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" style={{ width: 24, height: 24, flexShrink: 0 }}>
+                            <path d="M7 9l1.4 10.5h7.2L17 9zM7 9c0-2 1.4-3 2.5-3S11 7 12 7s1.4-1 2.5-1S17 7 17 9" />
+                        </svg>
                         <span>
                             ¿Qué vemos hoy?
                             <small>Te elijo una de tus {lists.watchlist.length} pendientes</small>
@@ -336,7 +342,10 @@ export default function App() {
                     )}
 
                     <button type="button" className="fab" onClick={() => setShowSearch(true)} aria-label="Buscar un título">
-                        🔍
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                            <circle cx="11" cy="11" r="6.5" />
+                            <path d="M16 16l4.5 4.5" />
+                        </svg>
                     </button>
 
                     {visibleList.length === 0 ? (
@@ -426,7 +435,9 @@ export default function App() {
                         className={tab === item.id ? "is-active" : ""}
                         onClick={() => setTab(item.id)}
                     >
-                        <span>{item.icon}</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                            <path d={ICONS[item.id]} />
+                        </svg>
                         {item.label}
                     </button>
                 ))}
@@ -447,6 +458,8 @@ export default function App() {
                     }}
                 />
             )}
+
+            {posterItem && <PosterViewer item={posterItem} onClose={() => setPosterItem(null)} />}
 
             {showSearch && (
                 <SearchSheet

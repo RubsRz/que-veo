@@ -40,6 +40,7 @@ export function normalize(item, kind) {
         year: date ? Number(date.slice(0, 4)) : null,
         overview: item.overview,
         poster: IMG(item.poster_path),
+        posterHd: IMG(item.poster_path, "w780"),
         backdrop: IMG(item.backdrop_path, "w780"),
         rating: item.vote_average ? Math.round(item.vote_average * 10) / 10 : null,
         votes: item.vote_count ?? 0,

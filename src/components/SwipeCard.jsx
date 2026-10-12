@@ -13,7 +13,7 @@ const PULL_OPEN = 140; // cuánto hay que jalar hacia arriba para abrir la ficha
  *   arriba  → jala la ficha completa, que sigue al dedo; si sueltas antes, se queda
  *             en pendiente solo si pasaste el umbral lateral de arriba.
  */
-export default function SwipeCard({ item, onDecide, onOpen, onPull, genreNames }) {
+export default function SwipeCard({ item, onDecide, onOpen, onPull, onPoster, genreNames }) {
     const [drag, setDrag] = useState({ x: 0, y: 0, active: false });
     const [leaving, setLeaving] = useState(null);
     const start = useRef(null);
@@ -74,7 +74,7 @@ export default function SwipeCard({ item, onDecide, onOpen, onPull, genreNames }
             }, 170);
             return;
         }
-        if (moved < 6) onOpen(); // toque simple
+        if (moved < 6) onPoster(); // un toque muestra el póster completo
         setDrag({ x: 0, y: 0, active: false });
     }
 
@@ -118,6 +118,7 @@ export default function SwipeCard({ item, onDecide, onOpen, onPull, genreNames }
             <span className="stamp stamp-bad" style={stamp("disliked")}>No me gustó</span>
 
             <div className="card-info">
+                <span className="grabber grabber-top" aria-hidden="true" />
                 <h2 className="card-title">{item.title}</h2>
                 <p className="card-meta">
                     {item.year && <span>{item.year}</span>}
@@ -125,11 +126,6 @@ export default function SwipeCard({ item, onDecide, onOpen, onPull, genreNames }
                     {(item.genreIds ?? []).slice(0, 2).map((id) => (
                         <span key={id}>{genreNames[id] ?? ""}</span>
                     ))}
-                </p>
-                {item.overview && <p className="card-overview">{item.overview}</p>}
-                <p className="card-more">
-                    <span className="grabber" aria-hidden="true" />
-                    Desliza hacia arriba para la ficha completa
                 </p>
             </div>
         </article>
