@@ -82,6 +82,8 @@ export default function App() {
     }, []);
     const [toast, setToast] = useState(null);
     const seen = useRef(new Set());
+    // Páginas seguidas que no trajeron nada nuevo: evita pedir sin fin cuando ya viste todo
+    const emptyTries = useRef({ movie: 0, tv: 0 });
 
     const type = tab === "tv" ? "tv" : "movie";
     const taste = useMemo(() => buildTaste(Object.values(library)), [library]);
@@ -114,8 +116,10 @@ export default function App() {
             setError(null);
             try {
                 const page = reset ? 1 : pages[kind];
+                if (reset) emptyTries.current[kind] = 0;
                 const found = await discover({ type: kind, page, taste });
                 const fresh = rankDeck(filterDeck(found, library, seen.current), taste);
+                emptyTries.current[kind] = fresh.length ? 0 : emptyTries.current[kind] + 1;
 
                 // Se mete una descartada de vez en cuando, marcada para que se note
                 const skipped = Object.values(library).filter(
@@ -156,9 +160,9 @@ export default function App() {
         });
     }, [library]);
 
-    // Cuando se está acabando la baraja, se piden más
+    // Cuando se está acabando la baraja (o ya se vació) se piden más páginas
     useEffect(() => {
-        if (!loading && decks[type].length > 0 && decks[type].length < 4) loadMore(type);
+        if (!loading && !error && decks[type].length < 4 && emptyTries.current[type] < 5) loadMore(type);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [decks, type]);
 
@@ -330,7 +334,17 @@ export default function App() {
                         {!error && !current && !loading && (
                             <div className="empty">
                                 <b>Ya no hay más por ahora</b>
-                                <p>Cargamos más títulos en un momento, o revisa tus listas.</p>
+                                <p>Ya calificaste casi todo lo que había. Busca más o revisa tus listas.</p>
+                                <button
+                                    type="button"
+                                    className="btn btn-primary"
+                                    onClick={() => {
+                                        emptyTries.current[type] = 0;
+                                        loadMore(type);
+                                    }}
+                                >
+                                    Buscar más títulos
+                                </button>
                             </div>
                         )}
 
@@ -384,7 +398,7 @@ export default function App() {
                         </svg>
                         <span>
                             ¿Qué vemos hoy?
-                            <small>Te elijo una de tus {lists.watchlist.length} pendientes</small>
+                            <small>Te elijo una de tus {lists.watchlist.length} pendientes o de las novedades</small>
                         </span>
                     </button>
 

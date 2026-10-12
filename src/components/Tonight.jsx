@@ -1,6 +1,16 @@
 import { useState } from "react";
 import { tonightPick } from "../lib/taste";
 
+/** Dado, para el botón que elige por ti. */
+const Dice = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true" style={{ width: 18, height: 18, marginRight: 8, verticalAlign: "-3px" }}>
+        <rect x="4" y="4" width="16" height="16" rx="4" />
+        <circle cx="9" cy="9" r="1.1" fill="currentColor" stroke="none" />
+        <circle cx="15" cy="15" r="1.1" fill="currentColor" stroke="none" />
+        <circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none" />
+    </svg>
+);
+
 const TIMES = [
     { value: 0, label: "El tiempo que sea" },
     { value: 100, label: "Menos de 1 h 40" },
@@ -19,7 +29,7 @@ const SOURCES = [
 export default function Tonight({ lists, providers, onClose, onOpen, onFresh }) {
     const [maxMinutes, setMaxMinutes] = useState(0);
     const [providerId, setProviderId] = useState(0);
-    const [sources, setSources] = useState({ watchlist: true, liked: true, skipped: true, fresh: true });
+    const [sources, setSources] = useState({ watchlist: true, liked: true, skipped: false, fresh: true });
     const [pick, setPick] = useState(null);
     const [searched, setSearched] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -117,7 +127,14 @@ export default function Tonight({ lists, providers, onClose, onOpen, onFresh }) 
 
                 <div className="sheet-actions">
                     <button type="button" className="btn btn-primary btn-wide" onClick={roll} disabled={loading}>
-                        {loading ? "Buscando…" : pick ? "🎲 Proponme otra" : "🎲 Elegir por mí"}
+                        {loading ? (
+                            "Buscando…"
+                        ) : (
+                            <>
+                                <Dice />
+                                {pick ? "Proponme otra" : "Elegir por mí"}
+                            </>
+                        )}
                     </button>
                     <button type="button" className="btn btn-ghost btn-wide" onClick={onClose}>
                         Cerrar
