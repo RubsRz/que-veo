@@ -4,6 +4,7 @@ import { collection, deleteDoc, doc, onSnapshot, setDoc } from "firebase/firesto
 import { auth, cloudEnabled, db } from "./firebase";
 
 const LOCAL_KEY = "que-veo:library:v1";
+const PHOTO_KEY = "que-veo:photo:v1";
 
 const readLocal = () => {
     try {
@@ -46,6 +47,8 @@ export function useLibrary() {
     const [user, setUser] = useState(null);
     const [authReady, setAuthReady] = useState(!cloudEnabled);
     const [library, setLibrary] = useState(readLocal);
+    // Foto propia: si la pones, gana sobre la de Google
+    const [photo, setPhoto] = useState(() => localStorage.getItem(PHOTO_KEY));
 
     useEffect(() => {
         if (!cloudEnabled) return;
@@ -65,6 +68,32 @@ export function useLibrary() {
             setLibrary(next);
         });
     }, [user]);
+
+    // El perfil (de momento solo la foto) vive en su propio documento
+    useEffect(() => {
+        if (!cloudEnabled || !user) {
+            setPhoto(localStorage.getItem(PHOTO_KEY));
+            return;
+        }
+        return onSnapshot(doc(db, "users", user.uid), (snapshot) => {
+            setPhoto(snapshot.data()?.photo ?? null);
+        });
+    }, [user]);
+
+    /** Guarda (o quita, con null) tu foto propia. */
+    const savePhoto = useCallback(
+        async (dataUrl) => {
+            setPhoto(dataUrl);
+            if (cloudEnabled && user) {
+                await setDoc(doc(db, "users", user.uid), { photo: dataUrl }, { merge: true });
+            } else if (dataUrl) {
+                localStorage.setItem(PHOTO_KEY, dataUrl);
+            } else {
+                localStorage.removeItem(PHOTO_KEY);
+            }
+        },
+        [user],
+    );
 
     const decide = useCallback(
         async (item, decision, stars = null) => {
@@ -119,7 +148,7 @@ export function useLibrary() {
         };
     }, [library]);
 
-    return { user, authReady, cloudEnabled, library, lists, decide, forget, mergeLocalIntoCloud };
+    return { user, authReady, cloudEnabled, library, lists, photo, savePhoto, decide, forget, mergeLocalIntoCloud };
 }
 
 const byRecent = (a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "");

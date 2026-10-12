@@ -4,10 +4,12 @@ import { useEffect, useState } from "react";
  * Foto de Google. Se pide con referrerPolicy="no-referrer" porque si no,
  * Google bloquea la imagen y sale rota. Si aun así falla, van las iniciales.
  */
-export default function Avatar({ user }) {
+export default function Avatar({ user, photo }) {
     const [failed, setFailed] = useState(false);
 
-    useEffect(() => setFailed(false), [user?.photoURL]);
+    const src = photo ?? user?.photoURL;
+
+    useEffect(() => setFailed(false), [src]);
 
     const initials = (user?.displayName ?? user?.email ?? "?")
         .split(" ")
@@ -16,14 +18,14 @@ export default function Avatar({ user }) {
         .join("")
         .toUpperCase();
 
-    if (!user?.photoURL || failed) {
+    if (!src || failed) {
         return <span className="avatar avatar-initials">{initials}</span>;
     }
 
     return (
         <img
             className="avatar"
-            src={user.photoURL}
+            src={src}
             alt=""
             referrerPolicy="no-referrer"
             onError={() => setFailed(true)}

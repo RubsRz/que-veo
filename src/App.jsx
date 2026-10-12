@@ -10,6 +10,7 @@ import PosterViewer from "./components/PosterViewer";
 import DetailPanel from "./components/DetailPanel";
 import Avatar from "./components/Avatar";
 import { useLibrary } from "./lib/library";
+import { toAvatarDataUrl } from "./lib/image";
 import { cloudEnabled, loginWithGoogle, logout } from "./lib/firebase";
 import { buildTaste, filterDeck, libraryStats, rankDeck } from "./lib/taste";
 import { discover, getGenres, getProviders, hasApiKey, search } from "./lib/tmdb";
@@ -48,7 +49,7 @@ const LIST_TABS = [
 ];
 
 export default function App() {
-    const { user, authReady, library, lists, decide, forget, mergeLocalIntoCloud } = useLibrary();
+    const { user, authReady, library, lists, photo, savePhoto, decide, forget, mergeLocalIntoCloud } = useLibrary();
     const [tab, setTab] = useState("movies");
     const [theme, setTheme] = useState(
         () => localStorage.getItem("theme") ?? (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"),
@@ -67,6 +68,7 @@ export default function App() {
     const [lastAction, setLastAction] = useState(null); // para deshacer
     const [showSearch, setShowSearch] = useState(false);
     const [posterItem, setPosterItem] = useState(null);
+    const photoInput = useRef(null);
     const [pull, setPull] = useState(0); // 0..1, qué tanto jalaste la ficha hacia arriba
     const pullRef = useRef(0);
     const [isDesktop, setIsDesktop] = useState(() => matchMedia("(min-width: 1000px)").matches);
@@ -224,6 +226,19 @@ export default function App() {
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
     });
+
+    /** Cambiar la foto: se recorta y comprime aquí mismo antes de guardarla. */
+    async function handlePhoto(event) {
+        const file = event.target.files?.[0];
+        event.target.value = "";
+        if (!file) return;
+        try {
+            await savePhoto(await toAvatarDataUrl(file));
+            setToast("Foto actualizada");
+        } catch (error) {
+            setToast(error.message ?? "No se pudo usar esa imagen");
+        }
+    }
 
     async function handleLogin() {
         try {
@@ -416,14 +431,37 @@ export default function App() {
                 <main className="screen">
                     <div className="profile-card">
                         <div className="profile-top">
-                            <Avatar user={user} />
+                            <button
+                                type="button"
+                                className="avatar-button"
+                                onClick={() => photoInput.current?.click()}
+                                title="Cambiar foto"
+                            >
+                                <Avatar user={user} photo={photo} />
+                                <span className="avatar-edit" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M4 20h4L19 9a2.1 2.1 0 00-3-3L5 17z" />
+                                    </svg>
+                                </span>
+                            </button>
                             <div>
                                 <b>{user?.displayName ?? "Sin cuenta"}</b>
                                 <p className="sheet-meta">
                                     {user ? "Tus listas se sincronizan" : cloudEnabled ? "Tus listas viven solo en este navegador" : "Modo local"}
                                 </p>
+                                <div className="photo-actions">
+                                    <button type="button" onClick={() => photoInput.current?.click()}>
+                                        Cambiar foto
+                                    </button>
+                                    {photo && (
+                                        <button type="button" onClick={() => { savePhoto(null); setToast(user?.photoURL ? "Volvimos a la de Google" : "Foto quitada"); }}>
+                                            {user?.photoURL ? "Usar la de Google" : "Quitar foto"}
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
+                        <input ref={photoInput} type="file" accept="image/*" hidden onChange={handlePhoto} />
                         {cloudEnabled ? (
                             user ? (
                                 <button type="button" className="btn btn-ghost" onClick={logout}>Cerrar sesión</button>
