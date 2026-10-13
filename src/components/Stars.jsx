@@ -1,3 +1,5 @@
+import { useRef } from "react";
+
 /**
  * Estrellas de media en media: cada estrella tiene dos mitades, así que se puede
  * dar 4.5. La parte dorada se recorta por porcentaje, por eso una media estrella
@@ -20,8 +22,96 @@ function One({ fill, size }) {
     );
 }
 
-export default function Stars({ value = 0, onChange = null, size = 34, label = "Calificación" }) {
+/**
+ * Con `onDraft`, arrastrar el dedo sobre las estrellas va ajustando la calificación
+ * sin guardarla: así se ve exactamente si vas en 4, 4.5 o 5, y se confirma aparte.
+ * Un toque simple sí guarda de una vez, para no perder la rapidez cuando no
+ * necesitas afinar.
+ *
+ * El final del gesto se escucha en `window` y también por `touchend`, porque hay
+ * navegadores que mandan el "apretaste" y nunca el "soltaste".
+ */
+export default function Stars({ value = 0, onChange = null, onDraft = null, size = 34, label = "Calificación" }) {
     const stars = [1, 2, 3, 4, 5];
+    const row = useRef(null);
+    const drag = useRef(null);
+    const listeners = useRef(null);
+    const dragEndedAt = useRef(0); // para ignorar el clic que llega tras un arrastre
+
+    /**
+     * De la posición del dedo al valor, de media en media. Se mide de la primera
+     * a la última estrella, no del contenedor: si no, los márgenes de los lados
+     * corren la cuenta y tocar la quinta estrella daba 4.5.
+     */
+    const valueAt = (clientX) => {
+        const first = row.current?.firstElementChild?.getBoundingClientRect();
+        const last = row.current?.lastElementChild?.getBoundingClientRect();
+        if (!first || !last) return 0;
+        const ratio = (clientX - first.left) / (last.right - first.left);
+        return Math.min(5, Math.max(0.5, Math.ceil(ratio * 10) / 2));
+    };
+
+    function stop() {
+        const off = listeners.current;
+        listeners.current = null;
+        if (!off) return;
+        window.removeEventListener("pointermove", off.move);
+        window.removeEventListener("pointerup", off.up);
+        window.removeEventListener("pointercancel", off.cancel);
+        window.removeEventListener("touchmove", off.touchMove);
+        window.removeEventListener("touchend", off.touchEnd);
+    }
+
+    function track(clientX) {
+        const info = drag.current;
+        if (!info) return;
+        if (Math.abs(clientX - info.x) > 6) info.moved = true;
+        info.value = valueAt(clientX);
+        onDraft(info.value);
+    }
+
+    /** Suelta el gesto: solo guarda si fue un toque, no un arrastre. */
+    function finish(clientX) {
+        const info = drag.current;
+        drag.current = null;
+        stop();
+        if (!info) return;
+        if (info.moved) {
+            dragEndedAt.current = Date.now();
+            return; // arrastraste: queda listo, pero lo guardas tú
+        }
+        onChange(clientX == null ? info.value : valueAt(clientX));
+    }
+
+    /** Un toque sobre media estrella; se ignora si viene de soltar un arrastre. */
+    function pick(valor) {
+        if (Date.now() - dragEndedAt.current < 500) return;
+        onChange(valor);
+    }
+
+    function down(event) {
+        if (!onDraft || drag.current) return;
+        drag.current = { x: event.clientX, moved: false, value: valueAt(event.clientX) };
+        onDraft(drag.current.value);
+
+        const off = {
+            move: (e) => {
+                if (e.cancelable) e.preventDefault();
+                track(e.clientX);
+            },
+            up: (e) => finish(e.clientX),
+            // Si el navegador corta el gesto sin que te hayas movido, fue un toque
+            cancel: () => finish(),
+            touchMove: (e) => track(e.touches[0].clientX),
+            touchEnd: (e) => finish(e.changedTouches[0].clientX),
+        };
+        listeners.current = off;
+        window.addEventListener("pointermove", off.move, { passive: false });
+        window.addEventListener("pointerup", off.up);
+        window.addEventListener("pointercancel", off.cancel);
+        window.addEventListener("touchmove", off.touchMove, { passive: true });
+        window.addEventListener("touchend", off.touchEnd);
+    }
 
     if (!onChange) {
         return (
@@ -34,21 +124,27 @@ export default function Stars({ value = 0, onChange = null, size = 34, label = "
     }
 
     return (
-        <div className="stars" role="group" aria-label={label}>
+        <div
+            className={`stars ${onDraft ? "is-draggable" : ""}`}
+            role="group"
+            aria-label={label}
+            ref={row}
+            onPointerDown={down}
+        >
             {stars.map((index) => (
                 <span key={index} className="star-slot">
                     <One fill={Math.min(1, Math.max(0, value - index + 1))} size={size} />
-                    {/* Dos zonas: la izquierda da media estrella y la derecha la entera */}
+                    {/* Siguen ahí para el teclado; con arrastre dejan pasar el gesto */}
                     <button
                         type="button"
                         className="star-hit is-half"
-                        onClick={() => onChange(index - 0.5)}
+                        onClick={() => pick(index - 0.5)}
                         aria-label={`${index - 0.5} estrellas`}
                     />
                     <button
                         type="button"
                         className="star-hit is-full"
-                        onClick={() => onChange(index)}
+                        onClick={() => pick(index)}
                         aria-label={`${index} estrellas`}
                     />
                 </span>

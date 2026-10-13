@@ -834,6 +834,7 @@ h3 {
 /* Estrellas de media en media */
 .stars,
 .stars-view {
+    touch-action: none;
     display: flex;
     justify-content: center;
     gap: 6px;
@@ -1127,6 +1128,14 @@ h3 {
 
 .stars-prompt {
     text-align: center;
+}
+
+.stars-score {
+    margin-top: 10px;
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--watch);
+    line-height: 1;
 }
 
 .stars-label {

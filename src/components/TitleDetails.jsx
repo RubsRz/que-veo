@@ -129,11 +129,22 @@ export default function TitleDetails({
                     <Stars
                         value={stars}
                         size={36}
+                        onDraft={setStars}
                         onChange={(value) => {
                             setStars(value);
                             onDecide(full, "liked", value);
                         }}
                     />
+                    {stars > 0 && stars !== (entry?.stars ?? 0) && (
+                        <button
+                            type="button"
+                            className="btn btn-primary btn-wide"
+                            style={{ marginTop: 10 }}
+                            onClick={() => onDecide(full, "liked", stars)}
+                        >
+                            Guardar {stars}★
+                        </button>
+                    )}
 
                     <div className="sheet-actions">
                         <button type="button" className="btn btn-primary" onClick={() => onDecide(full, "liked", stars || null)}>
