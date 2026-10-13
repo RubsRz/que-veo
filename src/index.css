@@ -1204,28 +1204,108 @@ h3 {
     font-size: 16px;
 }
 
-/* Tu nombre, editable en el perfil */
-.name-input {
-    width: 100%;
-    padding: 2px 8px;
-    margin-left: -8px;
-    border: 1px solid transparent;
-    border-radius: 8px;
-    background: none;
-    color: var(--text);
-    font-family: inherit;
-    font-size: 16px;
+/* Editar perfil */
+.profile-top .icon-btn {
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.profile-editor {
+    display: grid;
+    justify-items: center;
+    text-align: center;
+}
+
+.profile-photo .avatar {
+    width: 124px;
+    height: 124px;
+    font-size: 2.2rem;
+    border: 3px solid var(--surface-2);
+}
+
+.link-btn {
+    margin: 12px 0 20px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    color: var(--accent);
+    font-size: 0.92rem;
     font-weight: 700;
 }
 
-.name-input:hover {
-    border-color: var(--border);
+.link-btn:hover {
+    background: var(--accent-soft);
 }
 
-.name-input:focus {
-    outline: none;
-    border-color: var(--accent);
+.field-label {
+    width: 100%;
+    margin-bottom: 6px;
+    color: var(--muted);
+    font-size: 0.82rem;
+    text-align: left;
+}
+
+.profile-editor .field-input {
+    text-align: center;
+    font-weight: 700;
+}
+
+.profile-editor .sheet-meta {
+    font-size: 0.8rem;
+}
+
+.sheet-foot .btn {
+    width: 100%;
+}
+
+/* El menú que sube desde abajo */
+.action-menu {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.55);
+    animation: fade 0.16s ease;
+}
+
+.action-menu-card {
+    display: grid;
+    width: min(460px, calc(100% - 16px));
+    gap: 1px;
+    margin-bottom: calc(8px + env(safe-area-inset-bottom));
+    border-radius: 18px;
+    background: var(--border);
+    overflow: hidden;
+    animation: up 0.2s ease;
+}
+
+.action-menu-card button {
+    padding: 16px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.action-menu-card button:active {
     background: var(--surface-2);
+}
+
+.action-menu-card button.is-danger {
+    color: var(--bad);
+}
+
+.action-menu-card button.is-cancel {
+    margin-top: 7px;
+    border-radius: 18px;
+    font-weight: 800;
+}
+
+@keyframes fade {
+    from {
+        opacity: 0;
+    }
 }
 
 /* ===================== Amigos ===================== */

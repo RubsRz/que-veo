@@ -15,6 +15,7 @@ import ListsScreen from "./components/ListsScreen";
 import ListDetail from "./components/ListDetail";
 import ShareSheet from "./components/ShareSheet";
 import WhoLikedSheet from "./components/WhoLikedSheet";
+import ProfileEditor from "./components/ProfileEditor";
 import { useLibrary } from "./lib/library";
 import { useFriends } from "./lib/friends";
 import { friendsBadge } from "./lib/social";
@@ -75,6 +76,7 @@ export default function App() {
     const [isDesktop, setIsDesktop] = useState(() => matchMedia("(min-width: 1000px)").matches);
     const [openFriend, setOpenFriend] = useState(null);
     const [whoItem, setWhoItem] = useState(null); // a quiénes les gustó el título de la tarjeta
+    const [editingProfile, setEditingProfile] = useState(false);
     // La primera vez conviene decir cómo se usa la baraja
     const [showTips, setShowTips] = useState(() => !localStorage.getItem(TIPS_KEY));
     const [shareItem, setShareItem] = useState(null); // título a compartir; `true` = solo crear lista
@@ -501,56 +503,26 @@ export default function App() {
                 <main className="screen">
                     <div className="profile-card">
                         <div className="profile-top">
-                            <button
-                                type="button"
-                                className="avatar-button"
-                                onClick={() => photoInput.current?.click()}
-                                title="Cambiar foto"
-                            >
-                                <Avatar user={{ ...user, displayName }} photo={photo} />
-                                <span className="avatar-edit" aria-hidden="true">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M4 20h4L19 9a2.1 2.1 0 00-3-3L5 17z" />
-                                    </svg>
-                                </span>
-                            </button>
+                            <Avatar user={{ ...user, displayName }} photo={photo} />
                             <div style={{ minWidth: 0, flex: 1 }}>
-                                <input
-                                    className="name-input"
-                                    defaultValue={displayName ?? ""}
-                                    placeholder={user ? "Tu nombre" : "Sin cuenta"}
-                                    maxLength={40}
-                                    aria-label="Tu nombre"
-                                    onBlur={(event) => {
-                                        const valor = event.target.value.trim();
-                                        if (valor === (displayName ?? "")) return;
-                                        saveName(valor);
-                                        social.publishProfile?.({ name: valor || user?.displayName || "Alguien" });
-                                        setToast("Nombre actualizado");
-                                    }}
-                                    onKeyDown={(event) => event.key === "Enter" && event.target.blur()}
-                                />
+                                <b>{displayName ?? "Sin cuenta"}</b>
                                 <p className="sheet-meta">
                                     {user ? "Tus listas se sincronizan" : cloudEnabled ? "Tus listas viven solo en este navegador" : "Modo local"}
                                 </p>
-                                <div className="photo-actions">
-                                    <button type="button" onClick={() => photoInput.current?.click()}>
-                                        Cambiar foto
-                                    </button>
-                                    {photo && (
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                savePhoto(null);
-                                                social.publishProfile?.({ photo: null });
-                                                setToast("Foto quitada");
-                                            }}
-                                        >
-                                            Quitar foto
-                                        </button>
-                                    )}
-                                </div>
                             </div>
+                            {
+                                <button
+                                    type="button"
+                                    className="icon-btn"
+                                    onClick={() => setEditingProfile(true)}
+                                    aria-label="Editar perfil"
+                                    title="Editar perfil"
+                                >
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M4 20h4L19 9a2.1 2.1 0 00-3-3L5 17z" />
+                                    </svg>
+                                </button>
+                            }
                         </div>
                         <input ref={photoInput} type="file" accept="image/*" hidden onChange={handlePhoto} />
                         {cloudEnabled ? (
@@ -684,6 +656,27 @@ export default function App() {
                         setOpenFriend(null);
                         setToast("Listo, ya no son amigos");
                     }}
+                />
+            )}
+
+            {editingProfile && (
+                <ProfileEditor
+                    user={user}
+                    photo={photo}
+                    name={displayName}
+                    onPickPhoto={() => photoInput.current?.click()}
+                    onRemovePhoto={() => {
+                        savePhoto(null);
+                        social.publishProfile?.({ photo: null });
+                        setToast("Foto quitada");
+                    }}
+                    onSave={(valor) => {
+                        if (valor === (displayName ?? "")) return;
+                        saveName(valor);
+                        social.publishProfile?.({ name: valor || user?.displayName || "Alguien" });
+                        setToast("Perfil actualizado");
+                    }}
+                    onClose={() => setEditingProfile(false)}
                 />
             )}
 
