@@ -2,19 +2,20 @@ import { useEffect, useState } from "react";
 import { getDetails } from "../lib/tmdb";
 import Avatar from "./Avatar";
 import Stars from "./Stars";
+import { ratingInfo } from "../lib/ratings";
 
 const DECISION_LABEL = {
-    liked: "Ya la vi y me gustó",
-    disliked: "La vi y no me gustó",
-    watchlist: "Pendiente por ver",
-    skipped: "No me interesa",
+    liked: "Ya la viste",
+    disliked: "Ya la viste",
+    watchlist: "Quieres verla",
+    skipped: "No la has visto",
 };
 
-/** Cómo se lee la opinión de un amigo en la ficha. */
-const FRIEND_LABEL = {
-    liked: "le gustó",
-    disliked: "no le gustó",
-    watchlist: "la tiene pendiente",
+/** Cómo se lee la opinión de un amigo: manda la calificación. */
+const friendLabel = (opinion) => {
+    if (opinion.decision === "watchlist") return "quiere verla";
+    if (!opinion.stars) return "ya la vio";
+    return opinion.stars >= 3 ? "le gustó" : "no le latió";
 };
 
 /**
@@ -114,7 +115,7 @@ export default function TitleDetails({
                             <li key={opinion.uid} className={`is-${opinion.decision}`}>
                                 <Avatar user={{ displayName: opinion.name }} photo={opinion.photo} />
                                 <span>
-                                    <b>{opinion.name}</b> {FRIEND_LABEL[opinion.decision]}
+                                    <b>{opinion.name}</b> {friendLabel(opinion)}
                                 </span>
                                 {opinion.stars ? <em>{opinion.stars}★</em> : null}
                             </li>
@@ -126,15 +127,12 @@ export default function TitleDetails({
             {showActions && (
                 <>
                     <h3 className="section-title">Tu calificación</h3>
-                    <Stars
-                        value={stars}
-                        size={36}
-                        onDraft={setStars}
-                        onChange={(value) => {
-                            setStars(value);
-                            onDecide(full, "liked", value);
-                        }}
-                    />
+                    <Stars value={stars} size={36} onDraft={setStars} onChange={setStars} />
+                    {ratingInfo(stars) && (
+                        <p className="stars-label" style={{ textAlign: "center" }}>
+                            <b>{ratingInfo(stars).title}</b> · {ratingInfo(stars).hint}
+                        </p>
+                    )}
                     {stars > 0 && stars !== (entry?.stars ?? 0) && (
                         <button
                             type="button"
@@ -147,17 +145,11 @@ export default function TitleDetails({
                     )}
 
                     <div className="sheet-actions">
-                        <button type="button" className="btn btn-primary" onClick={() => onDecide(full, "liked", stars || null)}>
-                            Me gustó
-                        </button>
                         <button type="button" className="btn btn-ghost" onClick={() => onDecide(full, "watchlist")}>
-                            Pendiente
-                        </button>
-                        <button type="button" className="btn btn-ghost" onClick={() => onDecide(full, "disliked")}>
-                            No me gustó
+                            Quiero verla
                         </button>
                         <button type="button" className="btn btn-ghost" onClick={() => onDecide(full, "skipped")}>
-                            No me interesa
+                            No la he visto
                         </button>
                         {onShare && (
                             <button type="button" className="btn btn-ghost btn-wide" onClick={() => onShare(full)}>

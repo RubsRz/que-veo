@@ -5,6 +5,8 @@
  * Es una función pura (entra tu biblioteca, sale un perfil), así que se prueba sola.
  */
 
+import { ratingWeight } from "./ratings";
+
 export const DECISIONS = {
     liked: "liked", // la vi y me gustó
     disliked: "disliked", // la vi y no me gustó
@@ -12,13 +14,23 @@ export const DECISIONS = {
     skipped: "skipped", // no me interesa
 };
 
-// Cuánto pesa cada decisión al calcular tus gustos
+// Cuánto pesa cada decisión cuando no hay calificación de por medio
 const WEIGHTS = {
-    liked: 1,
+    liked: 0.35, // la viste, pero no dijiste qué tal
     watchlist: 0.4,
     skipped: -0.5,
-    disliked: -1,
+    disliked: -1, // de antes, cuando existía ese botón
 };
+
+/**
+ * Lo que de verdad mueve tus gustos es la calificación: 5★ suma todo y 0.5★
+ * resta todo. Sin estrellas se usa el peso de la decisión a secas.
+ */
+function entryWeight(entry) {
+    const boost = entry.boost ?? 1;
+    if (entry.stars) return ratingWeight(entry.stars) * boost;
+    return (WEIGHTS[entry.decision] ?? 0) * boost;
+}
 
 /**
  * TMDB no usa los mismos géneros en cine que en televisión: "Acción" (28) no existe
@@ -57,13 +69,6 @@ const adaptEntry = (entry, forType) => ({
     genreIds: translateGenres(entry.genreIds ?? [], forType),
     boost: entry.type === forType ? SAME_TYPE_BOOST : 1,
 });
-
-/** Una calificación de 1 a 5 estrellas ajusta el peso: 5★ cuenta el doble que 3★. */
-function entryWeight(entry) {
-    const base = (WEIGHTS[entry.decision] ?? 0) * (entry.boost ?? 1);
-    if (entry.decision !== "liked" || !entry.stars) return base;
-    return base * (entry.stars / 3);
-}
 
 /**
  * Suma los pesos por género y los normaliza de -1 a 1.

@@ -62,7 +62,10 @@ export function ratingsByItem(libraries, friends) {
 
 /** Texto corto para la tarjeta: "A Ana le gustó" / "A Ana y 2 más les gustó". */
 export function friendsBadge(opinions = []) {
-    const liked = opinions.filter((opinion) => opinion.decision === "liked");
+    // Con la escala nueva, "le gustó" es de 3★ para arriba
+    const liked = opinions.filter(
+        (opinion) => opinion.decision === "liked" && (opinion.stars ?? 3) >= 3,
+    );
     const pending = opinions.filter((opinion) => opinion.decision === "watchlist");
     const group = liked.length ? liked : pending;
     if (!group.length) return null;

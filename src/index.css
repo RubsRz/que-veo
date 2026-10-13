@@ -431,6 +431,7 @@ h3 {
 }
 
 .deck-actions {
+    gap: 18px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -440,10 +441,22 @@ h3 {
 
 /* Botones de vidrio: translúcidos, con desenfoque y sin emojis */
 .glass-action {
-    display: grid;
-    place-items: center;
-    width: 52px;
-    height: 52px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 7px;
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    transition: transform 0.14s ease, color 0.2s;
+}
+
+/* El círculo de vidrio es el icono; la etiqueta va debajo */
+.glass-action svg {
+    width: 23px;
+    height: 23px;
+    padding: 14px;
+    box-sizing: content-box;
     border-radius: 50%;
     border: 1px solid rgba(255, 255, 255, 0.14);
     background: rgba(255, 255, 255, 0.07);
@@ -451,45 +464,43 @@ h3 {
     -webkit-backdrop-filter: blur(16px) saturate(140%);
     color: rgba(255, 255, 255, 0.82);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 8px 20px -12px rgba(0, 0, 0, 0.9);
-    transition: transform 0.14s ease, color 0.2s, border-color 0.2s, background-color 0.2s;
+    transition: border-color 0.2s, background-color 0.2s, color 0.2s;
 }
 
-:root[data-theme="light"] .glass-action {
+:root[data-theme="light"] .glass-action svg {
     border-color: rgba(10, 10, 20, 0.1);
     background: rgba(255, 255, 255, 0.6);
     color: rgba(20, 20, 30, 0.72);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 10px 22px -16px rgba(10, 10, 20, 0.6);
 }
 
-.glass-action svg {
-    width: 23px;
-    height: 23px;
+.glass-action:hover {
+    color: var(--text);
 }
 
-.glass-action:hover {
-    color: #fff;
+.glass-action:hover svg {
     border-color: rgba(255, 255, 255, 0.28);
     background: rgba(255, 255, 255, 0.12);
+    color: #fff;
 }
 
 .glass-action:active {
     transform: scale(0.93);
 }
 
-.glass-action.is-like {
-    width: 60px;
-    height: 60px;
+.glass-action.is-like svg {
+    width: 27px;
+    height: 27px;
     color: var(--accent);
     border-color: color-mix(in srgb, var(--accent) 45%, transparent);
     background: color-mix(in srgb, var(--accent) 16%, rgba(255, 255, 255, 0.05));
 }
 
-.glass-action.is-like svg {
-    width: 26px;
-    height: 26px;
+.glass-action.is-like {
+    color: var(--accent);
 }
 
-.glass-action.is-watch {
+.glass-action.is-watch svg {
     color: var(--watch);
     border-color: color-mix(in srgb, var(--watch) 35%, transparent);
 }
@@ -1128,6 +1139,17 @@ h3 {
 
 .stars-prompt {
     text-align: center;
+}
+
+.stars-title {
+    margin-top: 2px;
+    font-size: 1.05rem;
+    font-weight: 800;
+}
+
+.stars-title span {
+    color: var(--muted);
+    font-weight: 600;
 }
 
 .stars-score {

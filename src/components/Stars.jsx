@@ -76,17 +76,14 @@ export default function Stars({ value = 0, onChange = null, onDraft = null, size
         drag.current = null;
         stop();
         if (!info) return;
-        if (info.moved) {
-            dragEndedAt.current = Date.now();
-            return; // arrastraste: queda listo, pero lo guardas tú
-        }
-        onChange(clientX == null ? info.value : valueAt(clientX));
+        dragEndedAt.current = Date.now();
+        if (clientX != null) onDraft(valueAt(clientX)); // queda listo; lo confirmas tú
     }
 
     /** Un toque sobre media estrella; se ignora si viene de soltar un arrastre. */
     function pick(valor) {
         if (Date.now() - dragEndedAt.current < 500) return;
-        onChange(valor);
+        (onDraft ?? onChange)(valor);
     }
 
     function down(event) {
@@ -113,7 +110,8 @@ export default function Stars({ value = 0, onChange = null, onDraft = null, size
         window.addEventListener("touchend", off.touchEnd);
     }
 
-    if (!onChange) {
+    // Sin ninguna de las dos, solo se pinta
+    if (!onChange && !onDraft) {
         return (
             <span className="stars-view" role="img" aria-label={`${value} de 5 estrellas`}>
                 {stars.map((index) => (

@@ -5,12 +5,12 @@ const FLICK = 0.5; // px por ms: un manotazo rápido decide aunque no llegue al 
 const TAP = 10; // si te moviste menos que esto, fue un toque
 const HOLD = 420; // ms para que un toque largo abra el póster
 
-const DIRECTIONS = { right: "liked", left: "skipped", up: "watchlist", down: "disliked" };
+const DIRECTIONS = { right: "liked", left: "skipped", up: "watchlist" };
 
 /**
  * La tarjeta de la baraja.
  *
- * Gestos: → me gustó · ← paso · ↑ pendiente · ↓ no me gustó
+ * Gestos: → ya la vi (calificar) · ← no la he visto · ↑ quiero verla
  *         un toque abre la ficha · dejar el dedo encima abre el póster completo
  *
  * Está escrita a prueba de iOS, que cancela el toque en cuanto cree que vas a
@@ -51,7 +51,6 @@ export default function SwipeCard({ item, onDecide, onOpen, onPoster, onFriends,
         show("liked", sideways ? x / THRESHOLD : 0);
         show("skipped", sideways ? -x / THRESHOLD : 0);
         show("watchlist", sideways ? 0 : -y / THRESHOLD);
-        show("disliked", sideways ? 0 : y / THRESHOLD);
     }
 
     /** Pase lo que pase, la tarjeta vuelve a su sitio y se olvida del gesto. */
@@ -110,11 +109,12 @@ export default function SwipeCard({ item, onDecide, onOpen, onPoster, onFriends,
 
             const sideways = Math.abs(x) > Math.abs(y);
             const distance = sideways ? Math.abs(x) : Math.abs(y);
-            if (distance < THRESHOLD && speed < FLICK) {
+            const direction = sideways ? (x > 0 ? "right" : "left") : y > 0 ? "down" : "up";
+            // Hacia abajo no hay acción: la tarjeta se regresa
+            if ((distance < THRESHOLD && speed < FLICK) || !DIRECTIONS[direction]) {
                 paint(0, 0, true);
                 return;
             }
-            const direction = sideways ? (x > 0 ? "right" : "left") : y > 0 ? "down" : "up";
             fly(DIRECTIONS[direction], direction);
         };
 
@@ -184,10 +184,9 @@ export default function SwipeCard({ item, onDecide, onOpen, onPoster, onFriends,
                 </button>
             )}
 
-            <span ref={(node) => (stamps.current.liked = node)} className="stamp stamp-like">Me gustó</span>
-            <span ref={(node) => (stamps.current.skipped = node)} className="stamp stamp-nope">Paso</span>
-            <span ref={(node) => (stamps.current.watchlist = node)} className="stamp stamp-watch">Pendiente</span>
-            <span ref={(node) => (stamps.current.disliked = node)} className="stamp stamp-bad">No me gustó</span>
+            <span ref={(node) => (stamps.current.liked = node)} className="stamp stamp-like">Ya la vi</span>
+            <span ref={(node) => (stamps.current.skipped = node)} className="stamp stamp-nope">No la he visto</span>
+            <span ref={(node) => (stamps.current.watchlist = node)} className="stamp stamp-watch">Quiero verla</span>
 
             <div className="card-info">
                 <h2 className="card-title">{item.title}</h2>

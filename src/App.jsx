@@ -39,16 +39,18 @@ const TABS = [
     { id: "profile", label: "Perfil" },
 ];
 
-// Cada tantas tarjetas se cuela una que habías descartado, por si cambiaste de opinión
-const RESURFACE_EVERY = 12;
+// Cada tantas calificaciones se cuela una de las que dijiste que no habías visto,
+// por si ahora sí te late: la que mejor embone con tus gustos.
+const RESURFACE_EVERY = 50;
 
 const TIPS_KEY = "que-veo:tips:v1";
 
+const byRecent = (a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "");
+
 const LIST_NAMES = {
-    liked: "Me gustaron",
-    watchlist: "Pendientes",
-    disliked: "No me gustaron",
-    skipped: "Descartadas",
+    liked: "Calificadas",
+    watchlist: "Quiero verlas",
+    skipped: "No las he visto",
 };
 
 export default function App() {
@@ -91,6 +93,7 @@ export default function App() {
     const seen = useRef(new Set());
     // Páginas seguidas que no trajeron nada nuevo: evita pedir sin fin cuando ya viste todo
     const emptyTries = useRef({ movie: 0, tv: 0 });
+    const revived = useRef(0); // cuántas veces ya se recuperó una "no la he visto"
 
     const social = useFriends(user, photo, name);
     const displayName = name ?? user?.displayName ?? null;
@@ -159,13 +162,19 @@ export default function App() {
                 const fresh = rankDeck(filterDeck(found, library, seen.current), taste);
                 emptyTries.current[kind] = fresh.length ? 0 : emptyTries.current[kind] + 1;
 
-                // Se mete una descartada de vez en cuando, marcada para que se note
-                const skipped = Object.values(library).filter(
-                    (entry) => entry.decision === "skipped" && entry.type === kind && !seen.current.has(entry.id),
-                );
-                if (skipped.length && fresh.length > 3) {
-                    const revive = skipped[Math.floor(Math.random() * skipped.length)];
-                    fresh.splice(3, 0, { ...revive, resurfaced: true });
+                // Cada cierto número de calificaciones se cuela una de las que dijiste
+                // que no habías visto: la que mejor embone con tus gustos, marcada.
+                const calificadas = Object.values(library).filter((entry) => entry.stars).length;
+                const toca = calificadas > 0 && Math.floor(calificadas / RESURFACE_EVERY) > revived.current;
+                if (toca && fresh.length > 3) {
+                    const skipped = Object.values(library).filter(
+                        (entry) => entry.decision === "skipped" && entry.type === kind && !seen.current.has(entry.id),
+                    );
+                    const [mejor] = rankDeck(skipped, taste);
+                    if (mejor) {
+                        revived.current = Math.floor(calificadas / RESURFACE_EVERY);
+                        fresh.splice(3, 0, { ...mejor, resurfaced: true });
+                    }
                 }
                 setDecks((current) => ({ ...current, [kind]: reset ? fresh : [...current[kind], ...fresh] }));
                 setPages((current) => ({ ...current, [kind]: page + 1 }));
@@ -205,8 +214,8 @@ export default function App() {
     }, [decks, type]);
 
     function handleDecide(item, decision, stars = null) {
-        // "Me gustó" sin calificación todavía: primero se piden las estrellas
-        if (decision === "liked" && stars === null && !library[item.id]?.stars) {
+        // "Ya la vi" siempre pasa por el calificador, y de ahí se confirma
+        if (decision === "liked" && stars === null) {
             setToast(null); // que no estorbe mientras calificas
             setPendingLike(item);
             return;
@@ -224,9 +233,9 @@ export default function App() {
         setToast({
             text: {
                 liked: stars ? `Guardada con ${stars}★` : "Guardada",
-                watchlist: "En pendientes",
+                watchlist: "Quieres verla",
                 disliked: "Anotada",
-                skipped: "Descartada",
+                skipped: "No la has visto",
             }[decision],
             // El "deshacer" va aquí mismo, a la mano, en vez de escondido en la barra
             undo: { item, previous: library[item.id] ?? null },
@@ -266,7 +275,7 @@ export default function App() {
             if (event.target.matches("input, textarea, select")) return;
             const card = decks[type][0];
             if (!card || openItem || pendingLike) return;
-            const map = { ArrowRight: "liked", ArrowLeft: "skipped", ArrowUp: "watchlist", ArrowDown: "disliked" };
+            const map = { ArrowRight: "liked", ArrowLeft: "skipped", ArrowUp: "watchlist" };
             if (map[event.key]) {
                 event.preventDefault();
                 handleDecide(card, map[event.key]);
@@ -324,10 +333,13 @@ export default function App() {
 
     const stats = useMemo(() => libraryStats(library, genres), [library, genres]);
 
-    const visibleList = useMemo(
-        () => (listView?.kind === "mine" ? lists[listView.id] : []),
-        [lists, listView],
-    );
+    const visibleList = useMemo(() => {
+        if (listView?.kind !== "mine") return [];
+        // "Calificadas" junta lo que calificaste ahora y lo que antes marcabas
+        // como "no me gustó", que ya no existe como botón
+        if (listView.id === "liked") return [...lists.liked, ...lists.disliked].sort(byRecent);
+        return lists[listView.id];
+    }, [lists, listView]);
 
     // La lista que estás viendo por dentro: una tuya o una en conjunto
     const openedList = useMemo(() => {
@@ -447,8 +459,8 @@ export default function App() {
                     </div>
                     {isDesktop && current && (
                         <p className="keys-hint">
-                            Atajos: <kbd>←</kbd> paso · <kbd>→</kbd> me gustó · <kbd>↑</kbd> pendiente ·{" "}
-                            <kbd>↓</kbd> no me gustó · <kbd>⌘Z</kbd> deshacer
+                            Atajos: <kbd>→</kbd> ya la vi · <kbd>↑</kbd> quiero verla · <kbd>←</kbd> no la he visto ·{" "}
+                            <kbd>⌘Z</kbd> deshacer
                         </p>
                     )}
                 </main>
@@ -704,10 +716,9 @@ export default function App() {
                     <div className="tips-card">
                         <h2>Así se usa</h2>
                         <ul>
-                            <li><span className="tip-key">→</span> Me gustó</li>
-                            <li><span className="tip-key">←</span> No me interesa</li>
-                            <li><span className="tip-key">↑</span> Pendiente por ver</li>
-                            <li><span className="tip-key">↓</span> La vi y no me gustó</li>
+                            <li><span className="tip-key">→</span> Ya la vi · la calificas</li>
+                            <li><span className="tip-key">↑</span> Quiero verla</li>
+                            <li><span className="tip-key">←</span> No la he visto</li>
                             <li><span className="tip-key">·</span> Un toque abre la ficha</li>
                             <li><span className="tip-key">◉</span> Deja el dedo y ves el póster</li>
                         </ul>
@@ -719,6 +730,7 @@ export default function App() {
             {pendingLike && (
                 <StarsPrompt
                     item={pendingLike}
+                    entry={library[pendingLike.id]}
                     onSave={(stars) => commitDecision(pendingLike, "liked", stars)}
                     onCancel={() => setPendingLike(null)}
                 />

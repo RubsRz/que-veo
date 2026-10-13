@@ -182,3 +182,15 @@ describe("medias estrellas entre amigos", () => {
         expect(friendsBadge(ratings["x"]).stars).toBe(4.5);
     });
 });
+
+describe("con la escala nueva", () => {
+    it("3★ o más cuenta como que le gustó", () => {
+        const ratings = ratingsByItem({ ana: library(title("x", "liked", { stars: 3 })) }, [ANA]);
+        expect(friendsBadge(ratings["x"]).kind).toBe("liked");
+    });
+
+    it("menos de 3★ ya no se anuncia como que le gustó", () => {
+        const ratings = ratingsByItem({ ana: library(title("x", "liked", { stars: 1.5 })) }, [ANA]);
+        expect(friendsBadge(ratings["x"])).toBeNull();
+    });
+});

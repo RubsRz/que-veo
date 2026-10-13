@@ -214,9 +214,14 @@ describe("medias estrellas", () => {
         expect(alta[0].id).toBe(SCIFI);
     });
 
-    it("media estrella sigue contando como que te gustó", () => {
+    it("media estrella cuenta como que estuvo mal, no como que te gustó", () => {
         const scores = genreScores([entry("liked", [SCIFI], { stars: 0.5 })]);
-        expect(scores[0].score).toBeGreaterThan(0);
+        expect(scores[0].score).toBeLessThan(0);
+    });
+
+    it("de 3★ para arriba suma y de 2.5★ para abajo resta", () => {
+        expect(genreScores([entry("liked", [SCIFI], { stars: 3 })])[0].score).toBeGreaterThan(0);
+        expect(genreScores([entry("liked", [SCIFI], { stars: 2 })])[0].score).toBeLessThan(0);
     });
 
     it("el promedio del perfil acepta decimales", () => {

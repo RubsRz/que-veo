@@ -1,43 +1,38 @@
 import { useState } from "react";
 import Sheet from "./Sheet";
 import Stars from "./Stars";
+import { ratingInfo } from "../lib/ratings";
 
-/** Al marcar "me gustó" se pide la calificación antes de guardar. */
-export default function StarsPrompt({ item, onSave, onCancel }) {
-    const [stars, setStars] = useState(0);
-    const LABELS = ["", "No tanto", "Pasable", "Buena", "Muy buena", "De mis favoritas"];
-    const label = stars ? LABELS[Math.ceil(stars)] : "Toca una estrella, o arrastra para afinar";
+/** Al marcar "ya la vi" se pide la calificación, y siempre se confirma. */
+export default function StarsPrompt({ item, entry, onSave, onCancel }) {
+    const [stars, setStars] = useState(entry?.stars ?? 0);
+    const info = ratingInfo(stars);
 
     return (
-        <Sheet onClose={onCancel} title="¿Qué tal estuvo?" subtitle={item.title}>
+        <Sheet
+            onClose={onCancel}
+            title="¿Qué tal estuvo?"
+            subtitle={item.title}
+            footer={
+                <button type="button" className="btn btn-primary btn-wide" disabled={!stars} onClick={() => onSave(stars)}>
+                    {stars ? `Guardar ${stars}★` : "Elige una calificación"}
+                </button>
+            }
+        >
             <div className="stars-prompt">
+                <Stars value={stars} size={42} label="¿Cuántas estrellas?" onDraft={setStars} />
 
-                <Stars
-                    value={stars}
-                    size={42}
-                    label="¿Cuántas estrellas?"
-                    onDraft={setStars}
-                    onChange={(value) => {
-                        setStars(value);
-                        onSave(value);
-                    }}
-                />
                 <p className="stars-score">{stars ? `${stars}★` : "—"}</p>
-                <p className="stars-label">{label}</p>
-
-                <div className="sheet-actions">
-                    {stars > 0 && (
-                        <button type="button" className="btn btn-primary btn-wide" onClick={() => onSave(stars)}>
-                            Guardar {stars}★
-                        </button>
-                    )}
-                    <button type="button" className="btn btn-ghost" onClick={() => onSave(null)}>
-                        Guardar sin calificar
-                    </button>
-                    <button type="button" className="btn btn-ghost" onClick={onCancel}>
-                        Cancelar
-                    </button>
-                </div>
+                {info ? (
+                    <>
+                        <p className="stars-title">
+                            {info.title} <span>· {info.group}</span>
+                        </p>
+                        <p className="stars-label">{info.hint}</p>
+                    </>
+                ) : (
+                    <p className="stars-label">Toca una estrella o arrastra el dedo para afinar</p>
+                )}
             </div>
         </Sheet>
     );

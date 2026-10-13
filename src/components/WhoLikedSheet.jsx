@@ -1,10 +1,10 @@
 import Avatar from "./Avatar";
 import Sheet from "./Sheet";
 
-const LABEL = {
-    liked: "le gustó",
-    disliked: "no le gustó",
-    watchlist: "la tiene pendiente",
+const label = (opinion) => {
+    if (opinion.decision === "watchlist") return "quiere verla";
+    if (!opinion.stars) return "ya la vio";
+    return opinion.stars >= 3 ? "le gustó" : "no le latió";
 };
 
 /** A quiénes de tus amigos les gustó este título, al tocar la burbuja del póster. */
@@ -16,7 +16,7 @@ export default function WhoLikedSheet({ item, opinions, onClose, onOpenFriend })
                     <li key={opinion.uid} className={`is-${opinion.decision}`}>
                         <Avatar user={{ displayName: opinion.name }} photo={opinion.photo} />
                         <span>
-                            <b>{opinion.name}</b> {LABEL[opinion.decision]}
+                            <b>{opinion.name}</b> {label(opinion)}
                         </span>
                         {opinion.stars ? <em>{opinion.stars}★</em> : null}
                     </li>

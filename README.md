@@ -7,17 +7,18 @@ armas tus listas y la app aprende qué te gusta para irte mostrando mejores opci
 
 ## Qué hace
 
-- **Explorar deslizando**: → me gustó · ← no me interesa · ↑ pendiente · ↓ la vi y no me gustó.
-  También con botones, por si vas con una sola mano. Un toque abre la ficha y dejar el dedo
-  muestra el póster completo.
+- **Explorar deslizando**: → ya la vi (y la calificas) · ↑ quiero verla · ← no la he visto.
+  Son tres acciones porque la calificación ya dice si te gustó. También con botones, por si
+  vas con una sola mano. Un toque abre la ficha y dejar el dedo muestra el póster completo.
 - **Películas y series** en la misma pantalla, con un interruptor.
-- **Tus listas**: las que te gustaron (con calificación de media en media estrella: 4.5 cuenta),
-  las pendientes,
-  las que no te gustaron y las descartadas. Cada una se abre a pantalla completa, con
-  orden por recientes, calificación, año o nombre, en los dos sentidos, y en “me gustaron”
-  se puede filtrar por cada puntaje.
-- **Aprende de ti**: con cada decisión arma un perfil de géneros y épocas, y ordena la baraja
-  según eso. Cada cierto número de tarjetas mete una “sorpresa” para no encerrarte en lo mismo.
+- **Calificar de media en media estrella**, de 0.5 (*Desastre*) a 5 (*Obra maestra*): mientras
+  arrastras el dedo ves el puntaje, su nombre y qué significa, y se guarda cuando confirmas.
+- **Tus listas**: calificadas, quiero verlas y no las he visto. Cada una se abre a pantalla
+  completa, con orden por recientes, calificación, año o nombre, en los dos sentidos, y en
+  las calificadas se puede filtrar por cada puntaje.
+- **Aprende de ti**: la calificación manda (5★ suma todo, 0.5★ resta todo), y con eso arma un
+  perfil de géneros y épocas para ordenar la baraja. Cada 50 calificaciones recupera una de
+  las que dijiste que no habías visto, la que más embone contigo, por si cambiaste de idea.
 - **Dónde verla en México**: en qué plataformas está incluida y en cuáles se renta o compra
   (datos de JustWatch vía TMDB).
 - **“¿Qué vemos hoy?”**: filtras por el tiempo que tienes y la plataforma, y te propone una
@@ -83,6 +84,7 @@ La app tiene cuatro pantallas: **Explorar**, **Listas**, **Amigos** y **Perfil**
 ```
 src/lib/tmdb.js     ← catálogo: explorar, buscar, ficha, plataformas (con modo demo)
 src/lib/taste.js    ← perfil de gustos, orden de la baraja y "qué vemos hoy"
+src/lib/ratings.js  ← qué significa cada media estrella
 src/lib/library.js  ← tus listas: Firestore si hay sesión, localStorage si no
 src/lib/social.js   ← afinidad, qué ver juntos y quién opinó qué (sin Firebase de por medio)
 src/lib/friends.js  ← amigos, recomendaciones y listas en conjunto, en vivo
@@ -104,7 +106,7 @@ Dos piezas se llevan el cuidado extra porque en el celular es donde se siente la
   Escape y jalarla hacia abajo) y nunca puede quedar montada "a medias".
 
 La lógica de gustos y la social están separadas de React y no tocan el navegador, así que se
-prueban solas: **50 pruebas** cubren el perfil de géneros, el arranque en frío, el orden de la
+prueban solas: **53 pruebas** cubren el perfil de géneros, el arranque en frío, el orden de la
 baraja, los filtros de “qué vemos hoy”, el cálculo de afinidad, quién opinó de cada título y
 qué proponerles para ver juntos.
 

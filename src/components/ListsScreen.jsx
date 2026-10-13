@@ -1,10 +1,9 @@
 import Avatar from "./Avatar";
 
 const MINE = [
-    { id: "liked", label: "Me gustaron", hint: "Las que ya viste y te latieron" },
-    { id: "watchlist", label: "Pendientes", hint: "Las que quieres ver" },
-    { id: "disliked", label: "No me gustaron", hint: "Las que viste y no" },
-    { id: "skipped", label: "Descartadas", hint: "Las que no te llamaron" },
+    { id: "liked", label: "Calificadas", hint: "Las que ya viste" },
+    { id: "watchlist", label: "Quiero verlas", hint: "Tus pendientes" },
+    { id: "skipped", label: "No las he visto", hint: "Las que pasaste de largo" },
 ];
 
 /** Tres pósters encimados, como lomo de la lista. */
@@ -22,6 +21,9 @@ function Stack({ items }) {
         </span>
     );
 }
+
+/** Las calificadas incluyen las viejas de "no me gustó", que ya no se marcan así. */
+const total = (lists, id) => (id === "liked" ? lists.liked.length + lists.disliked.length : lists[id].length);
 
 /** Índice de listas: las tuyas y las que llevas con alguien más. */
 export default function ListsScreen({ lists, sharedLists, onOpenMine, onOpenShared, onNewShared, onTonight, canShare }) {
@@ -41,12 +43,12 @@ export default function ListsScreen({ lists, sharedLists, onOpenMine, onOpenShar
             <div className="list-grid">
                 {MINE.map((item) => (
                     <button key={item.id} type="button" className="list-card" onClick={() => onOpenMine(item.id)}>
-                        <Stack items={lists[item.id]} />
+                        <Stack items={item.id === "liked" ? [...lists.liked, ...lists.disliked] : lists[item.id]} />
                         <span className="list-card-text">
                             <b>{item.label}</b>
                             <small>
-                                {lists[item.id].length
-                                    ? `${lists[item.id].length} ${lists[item.id].length === 1 ? "título" : "títulos"}`
+                                {total(lists, item.id)
+                                    ? `${total(lists, item.id)} ${total(lists, item.id) === 1 ? "título" : "títulos"}`
                                     : item.hint}
                             </small>
                         </span>
