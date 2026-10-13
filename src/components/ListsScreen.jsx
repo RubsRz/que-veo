@@ -29,7 +29,8 @@ function Stack({ items }) {
 const itemsOf = (lists, id) => (id === "liked" || id === "disliked" ? splitRated(lists)[id] : lists[id]);
 
 /** Índice de listas: las tuyas y las que llevas con alguien más. */
-export default function ListsScreen({ lists, sharedLists, onOpenMine, onOpenShared, onNewShared, onTonight, canShare }) {
+export default function ListsScreen({ lists, sharedLists, onOpenMine, onOpenShared, onNewShared, onTonight, canShare, profiles = {} }) {
+    const quien = (list, uid) => profiles[uid] ?? list.profiles?.[uid] ?? {};
     return (
         <main className="screen">
             <button type="button" className="tonight-btn" onClick={onTonight}>
@@ -80,15 +81,12 @@ export default function ListsScreen({ lists, sharedLists, onOpenMine, onOpenShar
                         <span className="list-dot" aria-hidden="true" />
                         <span className="grow">
                             <b>{list.name}</b>
-                            <small>{list.members.map((uid) => list.profiles?.[uid]?.name ?? "Alguien").join(" · ")}</small>
+                            <small>{list.members.map((uid) => quien(list, uid).name ?? "Alguien").join(" · ")}</small>
                         </span>
                         <span className="members">
                             {list.members.slice(0, 3).map((uid) => (
                                 <span key={uid} className="member">
-                                    <Avatar
-                                        user={{ displayName: list.profiles?.[uid]?.name ?? "?" }}
-                                        photo={list.profiles?.[uid]?.photo}
-                                    />
+                                    <Avatar user={{ displayName: quien(list, uid).name ?? "?" }} photo={quien(list, uid).photo} />
                                 </span>
                             ))}
                         </span>

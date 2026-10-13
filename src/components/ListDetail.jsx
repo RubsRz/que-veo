@@ -29,6 +29,8 @@ const sorters = {
  * Encabezado fijo con el botón de regresar, orden, y los pósters en cuadrícula.
  */
 export default function ListDetail({ list, onBack, onOpenItem, social, friends = [], onToast, onInvite }) {
+    // El perfil en vivo manda sobre la copia que guardó la lista al crearse
+    const quien = (uid) => social?.profiles?.[uid] ?? list.profiles?.[uid] ?? {};
     const [order, setOrder] = useState("recent");
     const [asc, setAsc] = useState(false); // de menor a mayor
     const [filter, setFilter] = useState("pending");
@@ -81,11 +83,8 @@ export default function ListDetail({ list, onBack, onOpenItem, social, friends =
                 {shared && (
                     <div className="members">
                         {members.slice(0, 3).map((uid) => (
-                            <span key={uid} className="member" title={list.profiles?.[uid]?.name}>
-                                <Avatar
-                                    user={{ displayName: list.profiles?.[uid]?.name ?? "?" }}
-                                    photo={list.profiles?.[uid]?.photo}
-                                />
+                            <span key={uid} className="member" title={quien(uid).name}>
+                                <Avatar user={{ displayName: quien(uid).name ?? "?" }} photo={quien(uid).photo} />
                             </span>
                         ))}
                         {invitable.length > 0 && (

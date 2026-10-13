@@ -68,6 +68,9 @@ export function useFriends(user, photo, name) {
     const [links, setLinks] = useState([]); // amistades, aceptadas y pendientes
     const [libraries, setLibraries] = useState({}); // calificaciones de cada amigo
     const [recs, setRecs] = useState([]);
+    // Los perfiles en vivo de toda la gente que aparece contigo: si alguien cambia
+    // su foto o su nombre, se ve al instante en vez de la copia vieja
+    const [profiles, setProfiles] = useState({});
     const [lists, setLists] = useState([]);
     const enabled = Boolean(cloudEnabled && user);
 
@@ -104,25 +107,25 @@ export function useFriends(user, photo, name) {
         if (!user) return [];
         return links
             .filter((link) => link.status === "accepted")
-            .map((link) => toFriend(link, user.uid))
+            .map((link) => toFriend(link, user.uid, profiles))
             .sort((a, b) => a.name.localeCompare(b.name));
-    }, [links, user]);
+    }, [links, user, profiles]);
 
     /** Invitaciones que me mandaron y todavía no contesto. */
     const requests = useMemo(() => {
         if (!user) return [];
         return links
             .filter((link) => link.status === "pending" && link.requestedBy !== user.uid)
-            .map((link) => toFriend(link, user.uid));
-    }, [links, user]);
+            .map((link) => toFriend(link, user.uid, profiles));
+    }, [links, user, profiles]);
 
     /** Las que mandé yo y siguen sin respuesta. */
     const sent = useMemo(() => {
         if (!user) return [];
         return links
             .filter((link) => link.status === "pending" && link.requestedBy === user.uid)
-            .map((link) => toFriend(link, user.uid));
-    }, [links, user]);
+            .map((link) => toFriend(link, user.uid, profiles));
+    }, [links, user, profiles]);
 
     // Las calificaciones de cada amigo, en vivo
     const friendIds = friends.map((friend) => friend.uid).join(",");
@@ -166,6 +169,28 @@ export function useFriends(user, photo, name) {
             );
         });
     }, [enabled, user]);
+
+    const peopleIds = useMemo(() => {
+        const ids = new Set(user ? [user.uid] : []);
+        links.forEach((link) => link.members.forEach((member) => ids.add(member)));
+        lists.forEach((list) => (list.members ?? []).forEach((member) => ids.add(member)));
+        return [...ids].sort().join(",");
+    }, [links, lists, user]);
+
+    useEffect(() => {
+        if (!enabled || !peopleIds) return;
+        const unsubscribes = peopleIds.split(",").map((uid) =>
+            onSnapshot(
+                doc(db, "profiles", uid),
+                (snapshot) => {
+                    const data = snapshot.data();
+                    if (data) setProfiles((current) => ({ ...current, [uid]: { name: data.name, photo: data.photo ?? null } }));
+                },
+                () => {},
+            ),
+        );
+        return () => unsubscribes.forEach((stop) => stop());
+    }, [enabled, peopleIds]);
 
     const ratings = useMemo(() => ratingsByItem(libraries, friends), [libraries, friends]);
 
@@ -294,6 +319,7 @@ export function useFriends(user, photo, name) {
         enabled,
         blocked,
         profile,
+        profiles,
         friends,
         requests,
         sent,
@@ -333,9 +359,10 @@ export function useSharedItems(listId) {
     return items;
 }
 
-const toFriend = (link, myUid) => {
+const toFriend = (link, myUid, profiles = {}) => {
     const uid = link.members.find((member) => member !== myUid);
-    const data = link.profiles?.[uid] ?? {};
+    // Manda el perfil en vivo; la copia guardada en la amistad es el respaldo
+    const data = profiles[uid] ?? link.profiles?.[uid] ?? {};
     return { id: link.id, uid, name: data.name ?? "Alguien", photo: data.photo ?? null, status: link.status };
 };
 

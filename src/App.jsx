@@ -474,6 +474,7 @@ export default function App() {
                     <ListsScreen
                         lists={lists}
                         sharedLists={social.lists}
+                        profiles={social.profiles}
                         canShare={social.enabled}
                         onOpenMine={(id) => setListView({ kind: "mine", id })}
                         onOpenShared={(list) => setListView({ kind: "shared", id: list.id })}
