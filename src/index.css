@@ -47,6 +47,7 @@ body,
 }
 
 body {
+    touch-action: manipulation;
     background: var(--bg);
     color: var(--text);
     font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -166,8 +167,9 @@ h3 {
     bottom: 0;
     z-index: 30;
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    height: var(--tabbar);
+    grid-template-columns: repeat(4, 1fr);
+    height: calc(var(--tabbar) + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
     border-top: 1px solid var(--border);
     background: color-mix(in srgb, var(--surface) 92%, transparent);
     backdrop-filter: blur(12px);
@@ -619,13 +621,84 @@ h3 {
 }
 
 .sheet-card {
+    display: flex;
+    flex-direction: column;
     width: min(520px, 100%);
-    max-height: 92svh;
-    overflow-y: auto;
-    padding: 18px 18px 28px;
+    max-height: 88dvh;
+    overflow: hidden;
     border-radius: 20px 20px 0 0;
     background: var(--surface);
     animation: up 0.22s ease;
+    touch-action: pan-y;
+}
+
+.sheet-card.is-full {
+    max-height: 96dvh;
+    height: 96dvh;
+}
+
+/* El encabezado no se mueve: la ✕ siempre está a la mano */
+.sheet-head-bar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 16px 10px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    cursor: grab;
+}
+
+.sheet-head-bar .sheet-grabber {
+    position: absolute;
+    top: 7px;
+    left: 50%;
+    transform: translateX(-50%);
+    margin: 0;
+}
+
+.sheet-head-text {
+    flex: 1;
+    min-width: 0;
+    padding-top: 4px;
+}
+
+.sheet-head-text h2 {
+    font-size: 1.05rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sheet-close {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--surface-2);
+    color: var(--text);
+}
+
+.sheet-close svg {
+    width: 19px;
+    height: 19px;
+}
+
+.sheet-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding: 14px 18px calc(20px + env(safe-area-inset-bottom));
+}
+
+.sheet-foot {
+    padding: 12px 18px calc(14px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--border);
+    background: var(--surface);
 }
 
 @keyframes up {
@@ -1044,10 +1117,15 @@ h3 {
 .toast {
     position: fixed;
     left: 50%;
-    bottom: calc(var(--tabbar) + 16px);
+    bottom: calc(var(--tabbar) + 88px + env(safe-area-inset-bottom));
     z-index: 50;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: calc(100vw - 24px);
+    white-space: nowrap;
     transform: translateX(-50%);
-    padding: 10px 18px;
+    padding: 10px 14px 10px 18px;
     border-radius: 999px;
     background: var(--text);
     color: var(--bg);
@@ -1513,6 +1591,275 @@ h3 {
 
 .btn.is-danger {
     color: var(--bad);
+}
+
+/* ===================== Listas ===================== */
+.list-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(164px, 1fr));
+    gap: 10px;
+}
+
+.list-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    text-align: left;
+}
+
+.list-card:hover {
+    border-color: var(--accent);
+}
+
+.list-card-text {
+    min-width: 0;
+}
+
+.list-card-text b {
+    display: block;
+    font-size: 0.88rem;
+    line-height: 1.25;
+}
+
+.list-card-text small {
+    color: var(--muted);
+    font-size: 0.76rem;
+}
+
+/* Tres pósters encimados, como el lomo de la lista */
+.stack {
+    position: relative;
+    width: 52px;
+    height: 56px;
+    flex-shrink: 0;
+}
+
+.stack img,
+.stack i {
+    position: absolute;
+    top: 0;
+    width: 36px;
+    height: 54px;
+    border-radius: 6px;
+    object-fit: cover;
+    background: var(--surface-2);
+    border: 1px solid var(--surface);
+}
+
+.stack img:nth-child(1),
+.stack i:nth-child(1) {
+    left: 0;
+}
+.stack img:nth-child(2),
+.stack i:nth-child(2) {
+    left: 8px;
+    transform: rotate(6deg);
+}
+.stack img:nth-child(3),
+.stack i:nth-child(3) {
+    left: 16px;
+    transform: rotate(12deg);
+}
+
+.stack.is-empty {
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    width: 36px;
+}
+
+/* Una lista por dentro */
+.screen.is-detail {
+    padding-top: 0;
+}
+
+.detail-bar {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0 12px;
+    background: var(--bg);
+}
+
+.detail-bar-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.detail-bar-text h2 {
+    font-size: 1.1rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.chips-scroll {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+    margin-bottom: 6px;
+}
+
+.chips-scroll::-webkit-scrollbar {
+    display: none;
+}
+
+.chips-scroll .chip {
+    flex-shrink: 0;
+}
+
+.grid-big {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 12px;
+}
+
+.grid-item {
+    position: relative;
+}
+
+.grid-item.is-watched .poster img {
+    opacity: 0.45;
+}
+
+.grid-actions {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.grid-actions .tick {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255, 255, 255, 0.5);
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    backdrop-filter: blur(6px);
+}
+
+.grid-actions .tick svg {
+    width: 15px;
+    height: 15px;
+}
+
+.grid-item.is-watched .grid-actions .tick:not(.is-remove) {
+    border-color: var(--like);
+    background: var(--like);
+}
+
+.grid-actions .tick.is-remove {
+    opacity: 0.75;
+}
+
+/* El sello de "pendiente" al arrastrar hacia arriba */
+.stamp-watch {
+    color: var(--watch);
+    border-color: var(--watch);
+    left: 50%;
+    transform: translateX(-50%) rotate(0deg);
+    top: 18px;
+}
+
+/* El "deshacer" vive en el mismo aviso */
+.toast button {
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--bg);
+    color: var(--accent);
+    font-size: 0.8rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+/* Mientras llegan los títulos */
+.card-skeleton {
+    position: relative;
+    overflow: hidden;
+    background: var(--surface-2);
+}
+
+.card-skeleton .shine {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(100deg, transparent 20%, color-mix(in srgb, var(--surface) 70%, transparent) 50%, transparent 80%);
+    animation: shine 1.3s infinite;
+}
+
+@keyframes shine {
+    from {
+        transform: translateX(-100%);
+    }
+    to {
+        transform: translateX(100%);
+    }
+}
+
+/* Cómo se usa la baraja, la primera vez */
+.tips {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(3px);
+}
+
+.tips-card {
+    width: min(340px, 100%);
+    padding: 22px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+}
+
+.tips-card .btn {
+    width: 100%;
+}
+
+.tips-card h2 {
+    margin-bottom: 14px;
+    font-size: 1.2rem;
+}
+
+.tips-card ul {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 18px;
+    list-style: none;
+}
+
+.tips-card li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.92rem;
+}
+
+.tip-key {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 1rem;
+    font-weight: 800;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,0 +1,169 @@
+import { useMemo, useState } from "react";
+import Avatar from "./Avatar";
+import Poster from "./Poster";
+import { sortSharedItems } from "../lib/social";
+import { useSharedItems } from "../lib/friends";
+
+const ORDERS = [
+    { id: "recent", label: "Recientes" },
+    { id: "stars", label: "Mejor calificadas" },
+    { id: "year", label: "Más nuevas" },
+    { id: "title", label: "A-Z" },
+];
+
+const SHARED_FILTERS = [
+    { id: "pending", label: "Por ver" },
+    { id: "watched", label: "Ya vistas" },
+    { id: "all", label: "Todas" },
+];
+
+const sorters = {
+    recent: (a, b) => (b.updatedAt ?? b.addedAt ?? "").localeCompare(a.updatedAt ?? a.addedAt ?? ""),
+    stars: (a, b) => (b.stars ?? 0) - (a.stars ?? 0) || (b.rating ?? 0) - (a.rating ?? 0),
+    year: (a, b) => (b.year ?? 0) - (a.year ?? 0),
+    title: (a, b) => (a.title ?? "").localeCompare(b.title ?? ""),
+};
+
+/**
+ * Una lista por dentro, a pantalla completa: tuya o en conjunto.
+ * Encabezado fijo con el botón de regresar, orden, y los pósters en cuadrícula.
+ */
+export default function ListDetail({ list, onBack, onOpenItem, social, friends = [], onToast, onInvite }) {
+    const [order, setOrder] = useState("recent");
+    const [filter, setFilter] = useState("pending");
+    const shared = list.kind === "shared";
+    const liveItems = useSharedItems(shared ? list.id : null);
+
+    const items = useMemo(() => {
+        const base = shared ? sortSharedItems(liveItems) : list.items;
+        const filtered = shared
+            ? base.filter((item) => (filter === "all" ? true : filter === "watched" ? item.watched : !item.watched))
+            : base;
+        return [...filtered].sort(sorters[order]);
+    }, [shared, liveItems, list.items, filter, order]);
+
+    const pending = shared ? liveItems.filter((item) => !item.watched).length : null;
+    const members = shared ? list.members ?? [] : [];
+    const invitable = friends.filter((friend) => !members.includes(friend.uid));
+
+    return (
+        <main className="screen is-detail">
+            <header className="detail-bar">
+                <button type="button" className="icon-btn" onClick={onBack} aria-label="Regresar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M15 19l-7-7 7-7" />
+                    </svg>
+                </button>
+                <div className="detail-bar-text">
+                    <h2>{list.name}</h2>
+                    <p className="sheet-meta">
+                        {shared
+                            ? `${pending} por ver · ${liveItems.length - pending} ya vistas`
+                            : `${list.items.length} ${list.items.length === 1 ? "título" : "títulos"}`}
+                    </p>
+                </div>
+                {shared && (
+                    <div className="members">
+                        {members.slice(0, 3).map((uid) => (
+                            <span key={uid} className="member" title={list.profiles?.[uid]?.name}>
+                                <Avatar
+                                    user={{ displayName: list.profiles?.[uid]?.name ?? "?" }}
+                                    photo={list.profiles?.[uid]?.photo}
+                                />
+                            </span>
+                        ))}
+                        {invitable.length > 0 && (
+                            <button type="button" className="member is-add" onClick={onInvite} aria-label="Invitar a alguien">
+                                +
+                            </button>
+                        )}
+                    </div>
+                )}
+            </header>
+
+            <div className="chips chips-scroll">
+                {shared &&
+                    SHARED_FILTERS.map((item) => (
+                        <button
+                            key={item.id}
+                            type="button"
+                            className={`chip ${filter === item.id ? "is-on" : ""}`}
+                            onClick={() => setFilter(item.id)}
+                        >
+                            {item.label}
+                        </button>
+                    ))}
+                {ORDERS.map((item) => (
+                    <button
+                        key={item.id}
+                        type="button"
+                        className={`chip ${order === item.id ? "is-on" : ""}`}
+                        onClick={() => setOrder(item.id)}
+                    >
+                        {item.label}
+                    </button>
+                ))}
+            </div>
+
+            {items.length === 0 ? (
+                <div className="empty">
+                    <b>Nada aquí todavía</b>
+                    <p>
+                        {shared
+                            ? "Abre la ficha de una película y usa “Compartir” para echarla a esta lista."
+                            : "Califica títulos en Explorar y van cayendo solos."}
+                    </p>
+                </div>
+            ) : (
+                <div className="grid-cards grid-big">
+                    {items.map((item) => (
+                        <div key={item.id} className={`grid-item ${item.watched ? "is-watched" : ""}`}>
+                            <Poster
+                                item={item}
+                                note={shared ? `La puso ${item.addedBy?.name ?? "alguien"}` : null}
+                                onClick={() => onOpenItem(item)}
+                            />
+                            {shared && (
+                                <div className="grid-actions">
+                                    <button
+                                        type="button"
+                                        className="tick"
+                                        aria-label={item.watched ? "Marcar como no vista" : "Marcar como vista"}
+                                        onClick={() => social.markWatched(list.id, item, !item.watched)}
+                                    >
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M5 12.5l4.5 4.5L19 7" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="tick is-remove"
+                                        aria-label={`Quitar ${item.title}`}
+                                        onClick={() =>
+                                            social.removeFromList(list.id, item.id).then(() => onToast("Quitada de la lista"))
+                                        }
+                                    >
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                                            <path d="M6 6l12 12M18 6L6 18" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {shared && (
+                <button
+                    type="button"
+                    className="btn btn-ghost btn-wide is-danger"
+                    style={{ marginTop: 18 }}
+                    onClick={() => social.leaveList(list).then(onBack)}
+                >
+                    {members.length <= 1 ? "Borrar la lista" : "Salirme de la lista"}
+                </button>
+            )}
+        </main>
+    );
+}

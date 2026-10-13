@@ -8,10 +8,12 @@ armas tus listas y la app aprende qué te gusta para irte mostrando mejores opci
 ## Qué hace
 
 - **Explorar deslizando**: → me gustó · ← no me interesa · ↑ pendiente · ↓ la vi y no me gustó.
-  También con botones, por si vas con una sola mano.
-- **Pestañas separadas para películas y series.**
+  También con botones, por si vas con una sola mano. Un toque abre la ficha y dejar el dedo
+  muestra el póster completo.
+- **Películas y series** en la misma pantalla, con un interruptor.
 - **Tus listas**: las que te gustaron (con calificación de 1 a 5 estrellas), las pendientes,
-  las que no te gustaron y las descartadas.
+  las que no te gustaron y las descartadas. Cada una se abre a pantalla completa, con
+  orden por recientes, calificación, año o nombre.
 - **Aprende de ti**: con cada decisión arma un perfil de géneros y épocas, y ordena la baraja
   según eso. Cada cierto número de tarjetas mete una “sorpresa” para no encerrarte en lo mismo.
 - **Dónde verla en México**: en qué plataformas está incluida y en cuáles se renta o compra
@@ -74,6 +76,8 @@ lo que tenías local se sube a tu cuenta.
 
 ## Cómo está armado
 
+La app tiene cuatro pantallas: **Explorar**, **Listas**, **Amigos** y **Perfil**.
+
 ```
 src/lib/tmdb.js     ← catálogo: explorar, buscar, ficha, plataformas (con modo demo)
 src/lib/taste.js    ← perfil de gustos, orden de la baraja y "qué vemos hoy"
@@ -81,8 +85,21 @@ src/lib/library.js  ← tus listas: Firestore si hay sesión, localStorage si no
 src/lib/social.js   ← afinidad, qué ver juntos y quién opinó qué (sin Firebase de por medio)
 src/lib/friends.js  ← amigos, recomendaciones y listas en conjunto, en vivo
 src/components/     ← tarjeta deslizable, pósters, ficha, amigos y selector del día
+src/components/Sheet.jsx     ← la hoja que usan todas las pantallas emergentes
+src/components/SwipeCard.jsx ← los gestos de la baraja
 firestore.rules     ← quién puede leer y escribir qué
 ```
+
+### Los gestos y las hojas
+
+Dos piezas se llevan el cuidado extra porque en el celular es donde se siente la app:
+
+- **`SwipeCard`** escucha el arrastre en `window`, no en la tarjeta, para que el "soltaste"
+  llegue aunque el dedo salga del elemento; cualquier cancelación (iOS corta el toque en
+  cuanto cree que vas a hacer scroll) regresa la tarjeta a su lugar; y mientras arrastras no
+  se re-dibuja nada, se mueve el nodo directo.
+- **`Sheet`** siempre deja una ✕ a la vista, se cierra de cuatro formas (✕, tocar afuera,
+  Escape y jalarla hacia abajo) y nunca puede quedar montada "a medias".
 
 La lógica de gustos y la social están separadas de React y no tocan el navegador, así que se
 prueban solas: **35 pruebas** cubren el perfil de géneros, el arranque en frío, el orden de la
@@ -103,7 +120,8 @@ npx firebase emulators:start --only firestore,auth
 VITE_EMULATOR=1 npm run dev
 ```
 
-Así nada toca los datos reales.
+Así nada toca los datos reales. Lo de la interfaz se prueba con Playwright sobre **WebKit**,
+que es el motor de Safari: es donde salieron los problemas de gestos en iPhone.
 
 ## Stack
 

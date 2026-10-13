@@ -26,9 +26,7 @@ export default function FriendsScreen({
     library,
     onLogin,
     onOpenFriend,
-    onOpenList,
     onOpenItem,
-    onNewList,
     onToast,
 }) {
     const [code, setCode] = useState("");
@@ -53,7 +51,7 @@ export default function FriendsScreen({
         );
     }
 
-    const { profile, blocked, friends, requests, sent, libraries, ratings, recs, lists } = social;
+    const { profile, blocked, friends, requests, sent, libraries, ratings, recs } = social;
 
     if (blocked) {
         return (
@@ -167,30 +165,6 @@ export default function FriendsScreen({
                         ))}
                     </div>
                 </>
-            )}
-
-            <div className="section-head">
-                <h3 className="section-title">Listas en conjunto</h3>
-                <button type="button" className="btn btn-ghost btn-small" onClick={onNewList}>
-                    <Icon path={PLUS} size={16} /> Nueva
-                </button>
-            </div>
-            {lists.length === 0 ? (
-                <p className="notice">
-                    Una lista en conjunto es un “pendientes” compartido: cualquiera agrega títulos y todos ven lo que
-                    falta por ver.
-                </p>
-            ) : (
-                lists.map((list) => (
-                    <button key={list.id} type="button" className="friend-row is-button" onClick={() => onOpenList(list)}>
-                        <span className="list-dot" aria-hidden="true" />
-                        <span className="grow">
-                            <b>{list.name}</b>
-                            <small>{list.members.map((uid) => list.profiles?.[uid]?.name ?? "Alguien").join(" · ")}</small>
-                        </span>
-                        <span className="chevron" aria-hidden="true">›</span>
-                    </button>
-                ))
             )}
 
             {trending.length > 0 && (

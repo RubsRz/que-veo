@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Sheet from "./Sheet";
 import { tonightPick } from "../lib/taste";
 
 /** Dado, para el botón que elige por ti. */
@@ -68,12 +69,24 @@ export default function Tonight({ lists, providers, onClose, onOpen, onFresh, fr
     ].reduce((sum, value) => sum + (value || 0), 0);
 
     return (
-        <div className="sheet" onClick={onClose}>
-            <div className="sheet-card" onClick={(event) => event.stopPropagation()}>
-                <h2>¿Qué vemos hoy?</h2>
-                <p className="sheet-meta">
-                    {count} títulos tuyos{sources.fresh ? " más novedades del catálogo" : ""}.
-                </p>
+        <Sheet
+            onClose={onClose}
+            title="¿Qué vemos hoy?"
+            subtitle={`${count} títulos tuyos${sources.fresh ? " más novedades del catálogo" : ""}`}
+            footer={
+                <button type="button" className="btn btn-primary btn-wide" onClick={roll} disabled={loading}>
+                    {loading ? (
+                        "Buscando…"
+                    ) : (
+                        <>
+                            <Dice />
+                            {pick ? "Proponme otra" : "Elegir por mí"}
+                        </>
+                    )}
+                </button>
+            }
+        >
+            <>
 
                 <h3 className="section-title">De dónde la saco</h3>
                 <div className="checks">
@@ -135,23 +148,8 @@ export default function Tonight({ lists, providers, onClose, onOpen, onFresh, fr
                     <p className="notice">Nada cumple con esos filtros. Prueba con más tiempo, otra plataforma o incluye más listas.</p>
                 )}
 
-                <div className="sheet-actions">
-                    <button type="button" className="btn btn-primary btn-wide" onClick={roll} disabled={loading}>
-                        {loading ? (
-                            "Buscando…"
-                        ) : (
-                            <>
-                                <Dice />
-                                {pick ? "Proponme otra" : "Elegir por mí"}
-                            </>
-                        )}
-                    </button>
-                    <button type="button" className="btn btn-ghost btn-wide" onClick={onClose}>
-                        Cerrar
-                    </button>
-                </div>
-            </div>
-        </div>
+            </>
+        </Sheet>
     );
 }
 

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Avatar from "./Avatar";
+import Sheet from "./Sheet";
 
 /**
  * Hoja para compartir un título: mandárselo a un amigo o echarlo a una lista
@@ -36,10 +37,8 @@ export default function ShareSheet({ item, friends, lists, social, onClose, onTo
     }
 
     return (
-        <div className="sheet" onClick={onClose}>
-            <div className="sheet-card" onClick={(event) => event.stopPropagation()}>
-                <h2>{item ? "Compartir" : "Nueva lista en conjunto"}</h2>
-                {item && <p className="sheet-meta">{item.title}</p>}
+        <Sheet onClose={onClose} title={item ? "Compartir" : "Nueva lista en conjunto"} subtitle={item?.title}>
+            <>
 
                 {item && friends.length > 0 && (
                     <>
@@ -132,12 +131,7 @@ export default function ShareSheet({ item, friends, lists, social, onClose, onTo
                     </form>
                 )}
 
-                <div className="sheet-actions">
-                    <button type="button" className="btn btn-ghost btn-wide" onClick={onClose}>
-                        Cerrar
-                    </button>
-                </div>
-            </div>
-        </div>
+            </>
+        </Sheet>
     );
 }

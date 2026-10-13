@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Avatar from "./Avatar";
+import Sheet from "./Sheet";
 import Poster from "./Poster";
 import { affinity, watchTogether } from "../lib/social";
 
@@ -23,8 +24,16 @@ export default function FriendSheet({ friend, mine, theirs, onClose, onOpenItem,
     const list = groups[tab];
 
     return (
-        <div className="sheet" onClick={onClose}>
-            <div className="sheet-card" onClick={(event) => event.stopPropagation()}>
+        <Sheet
+            onClose={onClose}
+            title={friend.name}
+            footer={
+                <button type="button" className="btn btn-ghost btn-wide is-danger" onClick={() => onRemove(friend)}>
+                    Dejar de ser amigos
+                </button>
+            }
+        >
+            <>
                 <div className="sheet-head">
                     <Avatar user={{ displayName: friend.name }} photo={friend.photo} />
                     <div>
@@ -71,15 +80,7 @@ export default function FriendSheet({ friend, mine, theirs, onClose, onOpenItem,
                     </div>
                 )}
 
-                <div className="sheet-actions">
-                    <button type="button" className="btn btn-ghost btn-wide" onClick={onClose}>
-                        Cerrar
-                    </button>
-                    <button type="button" className="btn btn-ghost btn-wide is-danger" onClick={() => onRemove(friend)}>
-                        Dejar de ser amigos
-                    </button>
-                </div>
-            </div>
-        </div>
+            </>
+        </Sheet>
     );
 }

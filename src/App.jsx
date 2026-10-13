@@ -11,7 +11,8 @@ import DetailPanel from "./components/DetailPanel";
 import Avatar from "./components/Avatar";
 import FriendsScreen from "./components/FriendsScreen";
 import FriendSheet from "./components/FriendSheet";
-import SharedListSheet from "./components/SharedListSheet";
+import ListsScreen from "./components/ListsScreen";
+import ListDetail from "./components/ListDetail";
 import ShareSheet from "./components/ShareSheet";
 import { useLibrary } from "./lib/library";
 import { useFriends } from "./lib/friends";
@@ -23,17 +24,15 @@ import { discover, getGenres, getProviders, hasApiKey, search } from "./lib/tmdb
 
 // Iconos de línea, al tono del resto de la interfaz
 const ICONS = {
-    movies: "M4 5.5h16v13H4zM4 10h16M9 5.5v4.5M15 5.5v4.5M9 14h6",
-    tv: "M4 7.5h16v11H4zM9 3.5l3 4 3-4",
+    explorar: "M9.5 7.5h8a2 2 0 012 2v8a2 2 0 01-2 2h-8a2 2 0 01-2-2v-8a2 2 0 012-2zM5.5 16.5V6a2 2 0 012-2h10",
     lists: "M5 5h10v14H5zM15 7h4v12h-4M8 9h4M8 13h4",
     friends: "M9 11.4a3.2 3.2 0 100-6.4 3.2 3.2 0 000 6.4zM2.6 19.5a6.4 6.4 0 0112.8 0M16.2 5.3a3.1 3.1 0 010 6M18 19.5a6.2 6.2 0 00-1.5-4",
     profile: "M12 11.5a3.6 3.6 0 100-7.2 3.6 3.6 0 000 7.2zM4.8 20a7.2 7.2 0 0114.4 0",
 };
 
 const TABS = [
-    { id: "movies", label: "Pelis" },
-    { id: "tv", label: "Series" },
-    { id: "lists", label: "Mis listas" },
+    { id: "explorar", label: "Explorar" },
+    { id: "lists", label: "Listas" },
     { id: "friends", label: "Amigos" },
     { id: "profile", label: "Perfil" },
 ];
@@ -41,25 +40,21 @@ const TABS = [
 // Cada tantas tarjetas se cuela una que habías descartado, por si cambiaste de opinión
 const RESURFACE_EVERY = 12;
 
-const STAR_FILTERS = [
-    { id: 0, label: "Todas" },
-    { id: 5, label: "5★" },
-    { id: 4, label: "4★ o más" },
-    { id: 3, label: "3★ o más" },
-    { id: -1, label: "Sin calificar" },
-];
+const TIPS_KEY = "que-veo:tips:v1";
 
-const LIST_TABS = [
-    { id: "liked", label: "Me gustaron" },
-    { id: "watchlist", label: "Pendientes" },
-    { id: "disliked", label: "No me gustaron" },
-    { id: "skipped", label: "Descartadas" },
-];
+const LIST_NAMES = {
+    liked: "Me gustaron",
+    watchlist: "Pendientes",
+    disliked: "No me gustaron",
+    skipped: "Descartadas",
+};
 
 export default function App() {
     const { user, authReady, libraryReady, library, lists, photo, savePhoto, decide, forget, mergeLocalIntoCloud } =
         useLibrary();
-    const [tab, setTab] = useState("movies");
+    const [tab, setTab] = useState("explorar");
+    const [deckType, setDeckType] = useState("movie"); // el interruptor de Películas / Series
+    const [listView, setListView] = useState(null); // la lista abierta a pantalla completa
     const [theme, setTheme] = useState(
         () => localStorage.getItem("theme") ?? (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"),
     );
@@ -71,18 +66,15 @@ export default function App() {
     const [error, setError] = useState(null);
     const [openItem, setOpenItem] = useState(null);
     const [showTonight, setShowTonight] = useState(false);
-    const [listTab, setListTab] = useState("liked");
-    const [starFilter, setStarFilter] = useState(0);
     const [pendingLike, setPendingLike] = useState(null); // título esperando calificación
     const [lastAction, setLastAction] = useState(null); // para deshacer
     const [showSearch, setShowSearch] = useState(false);
     const [posterItem, setPosterItem] = useState(null);
     const photoInput = useRef(null);
-    const [pull, setPull] = useState(0); // 0..1, qué tanto jalaste la ficha hacia arriba
-    const pullRef = useRef(0);
     const [isDesktop, setIsDesktop] = useState(() => matchMedia("(min-width: 1000px)").matches);
     const [openFriend, setOpenFriend] = useState(null);
-    const [openList, setOpenList] = useState(null);
+    // La primera vez conviene decir cómo se usa la baraja
+    const [showTips, setShowTips] = useState(() => !localStorage.getItem(TIPS_KEY));
     const [shareItem, setShareItem] = useState(null); // título a compartir; `true` = solo crear lista
 
     useEffect(() => {
@@ -117,7 +109,7 @@ export default function App() {
     }, [social.ratings, library]);
     const friendOpinions = useCallback((item) => (item ? (social.ratings[item.id] ?? []) : []), [social.ratings]);
 
-    const type = tab === "tv" ? "tv" : "movie";
+    const type = deckType;
     // Un perfil por tipo: los géneros de cine y los de televisión no son los mismos,
     // así que lo que calificaste se traduce al vocabulario del que estés viendo.
     const tastes = useMemo(() => {
@@ -223,38 +215,28 @@ export default function App() {
         setDecks((current) => ({ ...current, [item.type]: current[item.type].filter((card) => card.id !== item.id) }));
         setOpenItem(null);
         setPendingLike(null);
-        setToast(
-            {
-                liked: stars ? `Guardada con ${stars}★` : "Guardada en “me gustaron”",
-                watchlist: "Guardada en pendientes",
-                disliked: "Anotada como “no me gustó”",
-                skipped: "Casi no te la vuelvo a mostrar",
+        setToast({
+            text: {
+                liked: stars ? `Guardada con ${stars}★` : "Guardada",
+                watchlist: "En pendientes",
+                disliked: "Anotada",
+                skipped: "Descartada",
             }[decision],
-        );
+            // El "deshacer" va aquí mismo, a la mano, en vez de escondido en la barra
+            undo: { item, previous: library[item.id] ?? null },
+        });
     }
 
     /** Deshacer la última decisión: la regresa a la baraja y restaura lo que estaba antes. */
-    async function undo() {
-        if (!lastAction) return;
-        const { item, previous } = lastAction;
+    async function undo(action = lastAction) {
+        if (!action) return;
+        const { item, previous } = action;
         seen.current.delete(item.id);
         if (previous) await decide(previous, previous.decision, previous.stars);
         else await forget(item.id);
         setDecks((current) => ({ ...current, [item.type]: [item, ...current[item.type]] }));
         setLastAction(null);
         setToast("Deshecho");
-    }
-
-    /** La ficha sigue al dedo: al soltar, se abre si pasaste de la mitad. */
-    function handlePull(item, progress) {
-        if (progress === null) {
-            if (pullRef.current > 0.5) setOpenItem(item);
-            pullRef.current = 0;
-            setPull(0);
-            return;
-        }
-        pullRef.current = progress;
-        setPull(progress);
     }
 
     /** Para "¿qué vemos hoy?": trae novedades del catálogo que no estén en tus listas. */
@@ -297,13 +279,8 @@ export default function App() {
             if (event.key !== "Escape") return;
             const closers = [
                 [posterItem, () => setPosterItem(null)],
-                [pendingLike, () => setPendingLike(null)],
-                [shareItem, () => setShareItem(null)],
-                [openFriend, () => setOpenFriend(null)],
-                [openList, () => setOpenList(null)],
-                [showTonight, () => setShowTonight(false)],
                 [showSearch, () => setShowSearch(false)],
-                [openItem, () => setOpenItem(null)],
+                [listView, () => setListView(null)],
             ];
             const first = closers.find(([open]) => open);
             if (!first) return;
@@ -312,7 +289,7 @@ export default function App() {
         };
         window.addEventListener("keydown", onEscape);
         return () => window.removeEventListener("keydown", onEscape);
-    }, [posterItem, pendingLike, shareItem, openFriend, openList, showTonight, showSearch, openItem]);
+    }, [posterItem, showSearch, listView]);
 
     /** Cambiar la foto: se recorta y comprime aquí mismo antes de guardarla. */
     async function handlePhoto(event) {
@@ -339,18 +316,24 @@ export default function App() {
 
     const stats = useMemo(() => libraryStats(library, genres), [library, genres]);
 
-    // Filtro por estrellas, solo en "me gustaron"
-    const visibleList = useMemo(() => {
-        const list = lists[listTab];
-        if (listTab !== "liked" || starFilter === 0) return list;
-        if (starFilter === -1) return list.filter((entry) => !entry.stars);
-        return list.filter((entry) => (entry.stars ?? 0) >= starFilter);
-    }, [lists, listTab, starFilter]);
+    const visibleList = useMemo(
+        () => (listView?.kind === "mine" ? lists[listView.id] : []),
+        [lists, listView],
+    );
+
+    // La lista que estás viendo por dentro: una tuya o una en conjunto
+    const openedList = useMemo(() => {
+        if (!listView) return null;
+        if (listView.kind === "mine") {
+            const label = LIST_NAMES[listView.id];
+            return { kind: "mine", id: listView.id, name: label, items: visibleList };
+        }
+        const shared = social.lists.find((list) => list.id === listView.id);
+        return shared ? { ...shared, kind: "shared" } : null;
+    }, [listView, visibleList, social.lists]);
 
     const deck = decks[type];
     const current = deck[0];
-    // Mientras jalas la ficha todavía no hay selección: se usa la tarjeta de arriba
-    const sheetItem = openItem ?? current;
 
     return (
         <div className="app">
@@ -365,25 +348,21 @@ export default function App() {
                 </div>
             </header>
 
-            {(tab === "movies" || tab === "tv") && (
+            {tab === "explorar" && (
                 <main className="screen is-deck">
                     <div className="deck-head">
                         <div className="segmented">
-                            <button type="button" className={tab === "movies" ? "is-active" : ""} onClick={() => setTab("movies")}>
+                            <button type="button" className={deckType === "movie" ? "is-active" : ""} onClick={() => setDeckType("movie")}>
                                 Películas
                             </button>
-                            <button type="button" className={tab === "tv" ? "is-active" : ""} onClick={() => setTab("tv")}>
+                            <button type="button" className={deckType === "tv" ? "is-active" : ""} onClick={() => setDeckType("tv")}>
                                 Series
                             </button>
                         </div>
                         <span className="action-hint" style={{ marginLeft: "auto", paddingBottom: 0 }}>
                             {taste.ready ? `A tu gusto · ${taste.rated} calificadas` : `Calibrando · ${taste.rated}/5`}
                         </span>
-                        {lastAction && (
-                            <button type="button" className="icon-btn" onClick={undo} title="Deshacer la última">
-                                ↩︎
-                            </button>
-                        )}
+
                     </div>
 
                     <div className="deck-layout">
@@ -398,7 +377,11 @@ export default function App() {
                                 </button>
                             </div>
                         )}
-                        {!error && !current && loading && <p className="loading">Cargando títulos…</p>}
+                        {!error && !current && loading && (
+                            <div className="card card-skeleton" aria-label="Cargando títulos">
+                                <span className="shine" />
+                            </div>
+                        )}
                         {!error && !current && !loading && (
                             <div className="empty">
                                 <b>Ya no hay más por ahora</b>
@@ -426,8 +409,9 @@ export default function App() {
                                     genreNames={genres}
                                     friends={friendsBadge(social.ratings[item.id])}
                                     onDecide={(decision) => handleDecide(item, decision)}
-                                    onOpen={() => setOpenItem(item)}
-                                    onPull={(progress) => handlePull(item, progress)}
+                                    // En escritorio la ficha ya está fija a la derecha, así que
+                                    // un clic en la tarjeta muestra el póster en grande
+                                    onOpen={() => (isDesktop ? setPosterItem(item) : setOpenItem(item))}
                                     onPoster={() => setPosterItem(item)}
                                 />
                             ) : (
@@ -461,70 +445,36 @@ export default function App() {
                 </main>
             )}
 
-            {tab === "lists" && (
-                <main className="screen">
-                    <button type="button" className="tonight-btn" onClick={() => setShowTonight(true)}>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" style={{ width: 24, height: 24, flexShrink: 0 }}>
-                            <path d="M7 9l1.4 10.5h7.2L17 9zM7 9c0-2 1.4-3 2.5-3S11 7 12 7s1.4-1 2.5-1S17 7 17 9" />
-                        </svg>
-                        <span>
-                            ¿Qué vemos hoy?
-                            <small>Te elijo una de tus {lists.watchlist.length} pendientes o de las novedades</small>
-                        </span>
-                    </button>
-
-                    <div className="list-tabs">
-                        {LIST_TABS.map((item) => (
-                            <button
-                                key={item.id}
-                                type="button"
-                                className={listTab === item.id ? "is-active" : ""}
-                                onClick={() => setListTab(item.id)}
-                            >
-                                {item.label} · {lists[item.id].length}
-                            </button>
-                        ))}
-                    </div>
-
-                    {listTab === "liked" && lists.liked.length > 0 && (
-                        <div className="list-tabs" style={{ marginTop: 8 }}>
-                            {STAR_FILTERS.map((filter) => (
-                                <button
-                                    key={filter.id}
-                                    type="button"
-                                    className={starFilter === filter.id ? "is-active" : ""}
-                                    onClick={() => setStarFilter(filter.id)}
-                                >
-                                    {filter.label}
-                                </button>
-                            ))}
-                        </div>
-                    )}
-
+            {tab === "lists" && !listView && (
+                <>
+                    <ListsScreen
+                        lists={lists}
+                        sharedLists={social.lists}
+                        canShare={social.enabled}
+                        onOpenMine={(id) => setListView({ kind: "mine", id })}
+                        onOpenShared={(list) => setListView({ kind: "shared", id: list.id })}
+                        onNewShared={() => setShareItem(true)}
+                        onTonight={() => setShowTonight(true)}
+                    />
                     <button type="button" className="fab" onClick={() => setShowSearch(true)} aria-label="Buscar un título">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
                             <circle cx="11" cy="11" r="6.5" />
                             <path d="M16 16l4.5 4.5" />
                         </svg>
                     </button>
+                </>
+            )}
 
-                    {visibleList.length === 0 ? (
-                        <div className="empty">
-                            <b>{lists[listTab].length ? "Nada con ese filtro" : "Todavía no hay nada aquí"}</b>
-                            <p>
-                                {lists[listTab].length
-                                    ? "Prueba con otra calificación."
-                                    : "Califica algunas películas en la pestaña de Pelis y aparecerán en esta lista."}
-                            </p>
-                        </div>
-                    ) : (
-                        <div className="grid-cards" style={{ marginTop: 12 }}>
-                            {visibleList.map((entry) => (
-                                <Poster key={entry.id} item={entry} onClick={() => setOpenItem(entry)} />
-                            ))}
-                        </div>
-                    )}
-                </main>
+            {tab === "lists" && listView && openedList && (
+                <ListDetail
+                    list={openedList}
+                    friends={social.friends}
+                    social={social}
+                    onBack={() => setListView(null)}
+                    onOpenItem={setOpenItem}
+                    onInvite={() => setShareItem(true)}
+                    onToast={setToast}
+                />
             )}
 
             {tab === "friends" && (
@@ -535,9 +485,7 @@ export default function App() {
                     library={library}
                     onLogin={handleLogin}
                     onOpenFriend={setOpenFriend}
-                    onOpenList={setOpenList}
                     onOpenItem={setOpenItem}
-                    onNewList={() => setShareItem(true)}
                     onToast={setToast}
                 />
             )}
@@ -631,7 +579,10 @@ export default function App() {
                         key={item.id}
                         type="button"
                         className={tab === item.id ? "is-active" : ""}
-                        onClick={() => setTab(item.id)}
+                        onClick={() => {
+                            setTab(item.id);
+                            setListView(null); // al cambiar de pestaña se sale de la lista abierta
+                        }}
                     >
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                             <path d={ICONS[item.id]} />
@@ -644,12 +595,10 @@ export default function App() {
                 ))}
             </nav>
 
-            {(openItem || pull > 0) && sheetItem && (
+            {openItem && (
                 <DetailSheet
-                    offset={openItem ? 0 : 1 - pull}
-                    dragging={!openItem}
-                    item={sheetItem}
-                    entry={library[sheetItem.id]}
+                    item={openItem}
+                    entry={library[openItem.id]}
                     onClose={() => setOpenItem(null)}
                     onDecide={handleDecide}
                     onForget={(id) => {
@@ -657,7 +606,7 @@ export default function App() {
                         setOpenItem(null);
                         setToast("Quitada de tus listas");
                     }}
-                    friendOpinions={friendOpinions(sheetItem)}
+                    friendOpinions={friendOpinions(openItem)}
                     onShare={social.enabled ? setShareItem : null}
                 />
             )}
@@ -710,20 +659,6 @@ export default function App() {
                 />
             )}
 
-            {openList && (
-                <SharedListSheet
-                    list={social.lists.find((list) => list.id === openList.id) ?? openList}
-                    friends={social.friends}
-                    social={social}
-                    onClose={() => setOpenList(null)}
-                    onOpenItem={(item) => {
-                        setOpenList(null);
-                        setOpenItem(item);
-                    }}
-                    onToast={setToast}
-                />
-            )}
-
             {shareItem && (
                 <ShareSheet
                     item={shareItem === true ? null : shareItem}
@@ -735,6 +670,23 @@ export default function App() {
                 />
             )}
 
+            {showTips && tab === "explorar" && current && (
+                <div className="tips" onClick={() => { setShowTips(false); localStorage.setItem(TIPS_KEY, "1"); }}>
+                    <div className="tips-card">
+                        <h2>Así se usa</h2>
+                        <ul>
+                            <li><span className="tip-key">→</span> Me gustó</li>
+                            <li><span className="tip-key">←</span> No me interesa</li>
+                            <li><span className="tip-key">↑</span> Pendiente por ver</li>
+                            <li><span className="tip-key">↓</span> La vi y no me gustó</li>
+                            <li><span className="tip-key">·</span> Un toque abre la ficha</li>
+                            <li><span className="tip-key">◉</span> Deja el dedo y ves el póster</li>
+                        </ul>
+                        <button type="button" className="btn btn-primary btn-wide">Va</button>
+                    </div>
+                </div>
+            )}
+
             {pendingLike && (
                 <StarsPrompt
                     item={pendingLike}
@@ -744,7 +696,22 @@ export default function App() {
             )}
 
             {!authReady && cloudEnabled && <p className="toast">Conectando…</p>}
-            {toast && <p className="toast">{toast}</p>}
+            {toast && (
+                <p className="toast">
+                    {toast.text ?? toast}
+                    {toast.undo && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                undo(toast.undo);
+                                setToast(null);
+                            }}
+                        >
+                            Deshacer
+                        </button>
+                    )}
+                </p>
+            )}
         </div>
     );
 }

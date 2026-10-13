@@ -28,6 +28,7 @@ export default function TitleDetails({
     showActions = true,
     friendOpinions = [],
     onShare = null,
+    hideTitle = false,
 }) {
     const [details, setDetails] = useState(null);
     const [stars, setStars] = useState(entry?.stars ?? 0);
@@ -55,7 +56,7 @@ export default function TitleDetails({
                     {full.poster ? <img src={full.poster} alt="" /> : <span className="poster-empty">{full.title}</span>}
                 </span>
                 <div>
-                    <h2>{full.title}</h2>
+                    {!hideTitle && <h2>{full.title}</h2>}
                     <p className="sheet-meta">
                         {[
                             full.year,

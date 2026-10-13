@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Sheet from "./Sheet";
 
 /** Al marcar "me gustó" se pide la calificación antes de guardar. */
 export default function StarsPrompt({ item, onSave, onCancel }) {
@@ -6,10 +7,8 @@ export default function StarsPrompt({ item, onSave, onCancel }) {
     const LABELS = ["", "No tanto", "Pasable", "Buena", "Muy buena", "De mis favoritas"];
 
     return (
-        <div className="sheet" onClick={onCancel}>
-            <div className="sheet-card stars-prompt" onClick={(event) => event.stopPropagation()}>
-                <h2>¿Qué tal estuvo?</h2>
-                <p className="sheet-meta">{item.title}</p>
+        <Sheet onClose={onCancel} title="¿Qué tal estuvo?" subtitle={item.title}>
+            <div className="stars-prompt">
 
                 <div className="stars stars-big">
                     {[1, 2, 3, 4, 5].map((value) => (
@@ -37,6 +36,6 @@ export default function StarsPrompt({ item, onSave, onCancel }) {
                     </button>
                 </div>
             </div>
-        </div>
+        </Sheet>
     );
 }
