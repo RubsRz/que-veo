@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getDetails } from "../lib/tmdb";
 import Avatar from "./Avatar";
+import Stars from "./Stars";
 
 const DECISION_LABEL = {
     liked: "Ya la vi y me gustó",
@@ -125,22 +126,14 @@ export default function TitleDetails({
             {showActions && (
                 <>
                     <h3 className="section-title">Tu calificación</h3>
-                    <div className="stars">
-                        {[1, 2, 3, 4, 5].map((value) => (
-                            <button
-                                key={value}
-                                type="button"
-                                className={value <= stars ? "is-on" : ""}
-                                onClick={() => {
-                                    setStars(value);
-                                    onDecide(full, "liked", value);
-                                }}
-                                aria-label={`${value} estrellas`}
-                            >
-                                ★
-                            </button>
-                        ))}
-                    </div>
+                    <Stars
+                        value={stars}
+                        size={36}
+                        onChange={(value) => {
+                            setStars(value);
+                            onDecide(full, "liked", value);
+                        }}
+                    />
 
                     <div className="sheet-actions">
                         <button type="button" className="btn btn-primary" onClick={() => onDecide(full, "liked", stars || null)}>

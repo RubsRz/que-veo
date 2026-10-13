@@ -30,17 +30,33 @@ const sorters = {
  */
 export default function ListDetail({ list, onBack, onOpenItem, social, friends = [], onToast, onInvite }) {
     const [order, setOrder] = useState("recent");
+    const [asc, setAsc] = useState(false); // de menor a mayor
     const [filter, setFilter] = useState("pending");
+    const [starFilter, setStarFilter] = useState(null); // puntaje exacto; null = todos
     const shared = list.kind === "shared";
+    const rated = !shared && list.id === "liked";
     const liveItems = useSharedItems(shared ? list.id : null);
+
+    /** Los puntajes que de verdad existen en esta lista, con cuántas hay de cada uno. */
+    const starOptions = useMemo(() => {
+        if (!rated) return [];
+        const counts = new Map();
+        for (const item of list.items) {
+            const key = item.stars ?? 0;
+            counts.set(key, (counts.get(key) ?? 0) + 1);
+        }
+        return [...counts.entries()].sort((a, b) => b[0] - a[0]).map(([value, count]) => ({ value, count }));
+    }, [rated, list.items]);
 
     const items = useMemo(() => {
         const base = shared ? sortSharedItems(liveItems) : list.items;
-        const filtered = shared
+        let filtered = shared
             ? base.filter((item) => (filter === "all" ? true : filter === "watched" ? item.watched : !item.watched))
             : base;
-        return [...filtered].sort(sorters[order]);
-    }, [shared, liveItems, list.items, filter, order]);
+        if (rated && starFilter !== null) filtered = filtered.filter((item) => (item.stars ?? 0) === starFilter);
+        const sorted = [...filtered].sort(sorters[order]);
+        return asc ? sorted.reverse() : sorted;
+    }, [shared, rated, liveItems, list.items, filter, starFilter, order, asc]);
 
     const pending = shared ? liveItems.filter((item) => !item.watched).length : null;
     const members = shared ? list.members ?? [] : [];
@@ -81,6 +97,28 @@ export default function ListDetail({ list, onBack, onOpenItem, social, friends =
                 )}
             </header>
 
+            {rated && starOptions.length > 1 && (
+                <div className="chips chips-scroll">
+                    <button
+                        type="button"
+                        className={`chip ${starFilter === null ? "is-on" : ""}`}
+                        onClick={() => setStarFilter(null)}
+                    >
+                        Todas · {list.items.length}
+                    </button>
+                    {starOptions.map((option) => (
+                        <button
+                            key={option.value}
+                            type="button"
+                            className={`chip ${starFilter === option.value ? "is-on" : ""}`}
+                            onClick={() => setStarFilter(option.value)}
+                        >
+                            {option.value ? `${option.value}★` : "Sin calificar"} · {option.count}
+                        </button>
+                    ))}
+                </div>
+            )}
+
             <div className="chips chips-scroll">
                 {shared &&
                     SHARED_FILTERS.map((item) => (
@@ -103,6 +141,18 @@ export default function ListDetail({ list, onBack, onOpenItem, social, friends =
                         {item.label}
                     </button>
                 ))}
+                <button
+                    type="button"
+                    className="chip is-direction"
+                    onClick={() => setAsc(!asc)}
+                    aria-label={asc ? "Cambiar a mayor primero" : "Cambiar a menor primero"}
+                    title={asc ? "De menor a mayor" : "De mayor a menor"}
+                >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" style={{ width: 15, height: 15, transform: asc ? "rotate(180deg)" : "" }}>
+                        <path d="M12 5v14M6 13l6 6 6-6" />
+                    </svg>
+                    {asc ? "Menor primero" : "Mayor primero"}
+                </button>
             </div>
 
             {items.length === 0 ? (

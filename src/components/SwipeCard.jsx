@@ -22,7 +22,7 @@ const DIRECTIONS = { right: "liked", left: "skipped", up: "watchlist", down: "di
  *   · mientras arrastras no se re-dibuja nada: se mueve el nodo directo, por eso
  *     va fluido hasta en un teléfono viejo.
  */
-export default function SwipeCard({ item, onDecide, onOpen, onPoster, genreNames, friends = null }) {
+export default function SwipeCard({ item, onDecide, onOpen, onPoster, onFriends, genreNames, friends = null }) {
     const card = useRef(null);
     const stamps = useRef({});
     const gesture = useRef(null);
@@ -158,21 +158,38 @@ export default function SwipeCard({ item, onDecide, onOpen, onPoster, genreNames
 
             {item.resurfaced && <p className="card-flag">La descartaste, pero creo que te puede gustar</p>}
 
+            {friends && (
+                <button
+                    type="button"
+                    className={`friend-bubble is-${friends.kind}`}
+                    // El toque es de la burbuja, no de la tarjeta
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        onFriends(friends.people);
+                    }}
+                    aria-label={friends.text}
+                    title={friends.text}
+                >
+                    {friends.people.slice(0, friends.people.length > 3 ? 2 : 3).map((person) => (
+                        <span key={person.uid} className="bubble-face">
+                            {person.photo ? (
+                                <img src={person.photo} alt="" referrerPolicy="no-referrer" />
+                            ) : (
+                                <i>{(person.name ?? "?").slice(0, 1).toUpperCase()}</i>
+                            )}
+                        </span>
+                    ))}
+                    {friends.people.length > 3 && <span className="bubble-more">+{friends.people.length - 2}</span>}
+                </button>
+            )}
+
             <span ref={(node) => (stamps.current.liked = node)} className="stamp stamp-like">Me gustó</span>
             <span ref={(node) => (stamps.current.skipped = node)} className="stamp stamp-nope">Paso</span>
             <span ref={(node) => (stamps.current.watchlist = node)} className="stamp stamp-watch">Pendiente</span>
             <span ref={(node) => (stamps.current.disliked = node)} className="stamp stamp-bad">No me gustó</span>
 
             <div className="card-info">
-                {friends && (
-                    <p className={`card-friends is-${friends.kind}`}>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                            <path d="M9 11.5a3.2 3.2 0 100-6.4 3.2 3.2 0 000 6.4zM2.8 19a6.2 6.2 0 0112.4 0M16 5.6a3 3 0 010 5.8M17.5 19a6 6 0 00-1.2-3.6" />
-                        </svg>
-                        {friends.text}
-                        {friends.stars ? ` · ${friends.stars}★` : ""}
-                    </p>
-                )}
                 <h2 className="card-title">{item.title}</h2>
                 <p className="card-meta">
                     {item.year && <span>{item.year}</span>}

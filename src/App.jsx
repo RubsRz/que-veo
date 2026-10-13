@@ -14,6 +14,7 @@ import FriendSheet from "./components/FriendSheet";
 import ListsScreen from "./components/ListsScreen";
 import ListDetail from "./components/ListDetail";
 import ShareSheet from "./components/ShareSheet";
+import WhoLikedSheet from "./components/WhoLikedSheet";
 import { useLibrary } from "./lib/library";
 import { useFriends } from "./lib/friends";
 import { friendsBadge } from "./lib/social";
@@ -73,6 +74,7 @@ export default function App() {
     const photoInput = useRef(null);
     const [isDesktop, setIsDesktop] = useState(() => matchMedia("(min-width: 1000px)").matches);
     const [openFriend, setOpenFriend] = useState(null);
+    const [whoItem, setWhoItem] = useState(null); // a quiénes les gustó el título de la tarjeta
     // La primera vez conviene decir cómo se usa la baraja
     const [showTips, setShowTips] = useState(() => !localStorage.getItem(TIPS_KEY));
     const [shareItem, setShareItem] = useState(null); // título a compartir; `true` = solo crear lista
@@ -128,7 +130,7 @@ export default function App() {
 
     useEffect(() => {
         if (!toast) return;
-        const timer = setTimeout(() => setToast(null), 2200);
+        const timer = setTimeout(() => setToast(null), 1500);
         return () => clearTimeout(timer);
     }, [toast]);
 
@@ -202,6 +204,7 @@ export default function App() {
     function handleDecide(item, decision, stars = null) {
         // "Me gustó" sin calificación todavía: primero se piden las estrellas
         if (decision === "liked" && stars === null && !library[item.id]?.stars) {
+            setToast(null); // que no estorbe mientras calificas
             setPendingLike(item);
             return;
         }
@@ -413,6 +416,7 @@ export default function App() {
                                     // un clic en la tarjeta muestra el póster en grande
                                     onOpen={() => (isDesktop ? setPosterItem(item) : setOpenItem(item))}
                                     onPoster={() => setPosterItem(item)}
+                                    onFriends={() => setWhoItem(item)}
                                 />
                             ) : (
                                 <article key={item.id} className="card" style={{ transform: "scale(0.96) translateY(10px)", opacity: 0.75 }}>
@@ -659,6 +663,14 @@ export default function App() {
                 />
             )}
 
+            {whoItem && (
+                <WhoLikedSheet
+                    item={whoItem}
+                    opinions={friendOpinions(whoItem)}
+                    onClose={() => setWhoItem(null)}
+                />
+            )}
+
             {shareItem && (
                 <ShareSheet
                     item={shareItem === true ? null : shareItem}
@@ -697,7 +709,7 @@ export default function App() {
 
             {!authReady && cloudEnabled && <p className="toast">Conectando…</p>}
             {toast && (
-                <p className="toast">
+                <p className="toast" onClick={() => setToast(null)}>
                     {toast.text ?? toast}
                     {toast.undo && (
                         <button

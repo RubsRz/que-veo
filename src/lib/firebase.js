@@ -50,6 +50,7 @@ if (cloudEnabled) {
                 if (name && auth.currentUser.displayName !== name) await updateProfile(auth.currentUser, { displayName: name });
                 return auth.currentUser.uid;
             },
+            uid: () => auth.currentUser?.uid ?? null,
         };
     }
 }

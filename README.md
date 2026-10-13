@@ -11,9 +11,11 @@ armas tus listas y la app aprende qué te gusta para irte mostrando mejores opci
   También con botones, por si vas con una sola mano. Un toque abre la ficha y dejar el dedo
   muestra el póster completo.
 - **Películas y series** en la misma pantalla, con un interruptor.
-- **Tus listas**: las que te gustaron (con calificación de 1 a 5 estrellas), las pendientes,
+- **Tus listas**: las que te gustaron (con calificación de media en media estrella: 4.5 cuenta),
+  las pendientes,
   las que no te gustaron y las descartadas. Cada una se abre a pantalla completa, con
-  orden por recientes, calificación, año o nombre.
+  orden por recientes, calificación, año o nombre, en los dos sentidos, y en “me gustaron”
+  se puede filtrar por cada puntaje.
 - **Aprende de ti**: con cada decisión arma un perfil de géneros y épocas, y ordena la baraja
   según eso. Cada cierto número de tarjetas mete una “sorpresa” para no encerrarte en lo mismo.
 - **Dónde verla en México**: en qué plataformas está incluida y en cuáles se renta o compra
@@ -26,8 +28,8 @@ armas tus listas y la app aprende qué te gusta para irte mostrando mejores opci
 ### Con amigos
 
 - **Te agregas con un código** de seis caracteres; la otra persona acepta y listo.
-- **En la baraja te avisa** si a alguien de tus amigos ya le gustó ese título, y con cuántas
-  estrellas. En la ficha completa ves qué opinó cada quien.
+- **En la baraja te avisa** con una burbuja en el póster: las fotos de quienes ya la vieron
+  (dos y un “+N” si son más de tres). Al tocarla se ve quién dijo qué y con cuántas estrellas.
 - **Afinidad**: de los títulos que los dos vieron, en cuántos opinaron igual.
 - **Qué ver juntos**: lo que los dos tienen pendiente, lo que a esa persona le encantó y tú no
   has visto, y lo que tú le puedes recomendar.
@@ -102,7 +104,7 @@ Dos piezas se llevan el cuidado extra porque en el celular es donde se siente la
   Escape y jalarla hacia abajo) y nunca puede quedar montada "a medias".
 
 La lógica de gustos y la social están separadas de React y no tocan el navegador, así que se
-prueban solas: **35 pruebas** cubren el perfil de géneros, el arranque en frío, el orden de la
+prueban solas: **50 pruebas** cubren el perfil de géneros, el arranque en frío, el orden de la
 baraja, los filtros de “qué vemos hoy”, el cálculo de afinidad, quién opinó de cada título y
 qué proponerles para ver juntos.
 

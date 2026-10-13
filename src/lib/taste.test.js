@@ -207,3 +207,26 @@ describe("géneros de cine contra géneros de series", () => {
         expect(buildTaste(mezcla, { forType: "movie" }).topGenres[0].id).toBe(COMEDY);
     });
 });
+
+describe("medias estrellas", () => {
+    it("4.5★ pesa más que 3.5★", () => {
+        const alta = genreScores([entry("liked", [SCIFI], { stars: 4.5 }), entry("liked", [COMEDY], { stars: 3.5 })]);
+        expect(alta[0].id).toBe(SCIFI);
+    });
+
+    it("media estrella sigue contando como que te gustó", () => {
+        const scores = genreScores([entry("liked", [SCIFI], { stars: 0.5 })]);
+        expect(scores[0].score).toBeGreaterThan(0);
+    });
+
+    it("el promedio del perfil acepta decimales", () => {
+        const stats = libraryStats(
+            {
+                a: entry("liked", [SCIFI], { stars: 4.5 }),
+                b: entry("liked", [SCIFI], { stars: 3.5 }),
+            },
+            {},
+        );
+        expect(stats.averageStars).toBe(4);
+    });
+});

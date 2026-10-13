@@ -163,3 +163,22 @@ describe("listas en conjunto", () => {
         expect(sortSharedItems(items).map((item) => item.id)).toEqual(["c", "b", "a"]);
     });
 });
+
+describe("medias estrellas entre amigos", () => {
+    it("4.5 contra 4 sigue siendo coincidir", () => {
+        const mine = library(title("a", "liked", { stars: 4.5 }), title("b", "liked"), title("c", "liked"));
+        const theirs = library(title("a", "liked", { stars: 4 }), title("b", "liked"), title("c", "liked"));
+        expect(affinity(mine, theirs).score).toBe(100);
+    });
+
+    it("4.5 contra 1.5 ya no", () => {
+        const mine = library(title("a", "liked", { stars: 4.5 }), title("b", "liked"), title("c", "liked"));
+        const theirs = library(title("a", "liked", { stars: 1.5 }), title("b", "liked"), title("c", "liked"));
+        expect(affinity(mine, theirs).score).toBe(67);
+    });
+
+    it("el aviso de la tarjeta trae la media estrella", () => {
+        const ratings = ratingsByItem({ ana: library(title("x", "liked", { stars: 4.5 })) }, [ANA]);
+        expect(friendsBadge(ratings["x"]).stars).toBe(4.5);
+    });
+});

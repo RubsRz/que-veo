@@ -830,25 +830,71 @@ h3 {
     font-weight: 500;
 }
 
-.stars {
+/* Estrellas de media en media */
+.stars,
+.stars-view {
     display: flex;
+    justify-content: center;
     gap: 6px;
     margin-top: 12px;
 }
 
-.stars button {
-    font-size: 26px;
-    line-height: 1;
-    color: var(--border);
-    transition: transform 0.1s;
+.stars-view {
+    margin: 0;
+    gap: 2px;
 }
 
-.stars button.is-on {
-    color: var(--watch);
+.star-slot {
+    position: relative;
+    display: inline-flex;
 }
 
-.stars button:active {
-    transform: scale(1.2);
+.star {
+    position: relative;
+    display: inline-block;
+}
+
+.star svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.star-bg {
+    fill: color-mix(in srgb, var(--muted) 22%, transparent);
+    stroke: var(--muted);
+    stroke-width: 1.3;
+}
+
+.star-fill {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+}
+
+.star-fill svg path {
+    fill: var(--watch);
+}
+
+/* Dos zonas invisibles por estrella: media y entera */
+.star-hit {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 50%;
+    background: none;
+}
+
+.star-hit.is-half {
+    left: 0;
+}
+
+.star-hit.is-full {
+    right: 0;
+}
+
+.star-slot:active .star {
+    transform: scale(0.92);
 }
 
 .sheet-actions {
@@ -1082,15 +1128,6 @@ h3 {
     text-align: center;
 }
 
-.stars-big {
-    justify-content: center;
-    margin-top: 16px;
-}
-
-.stars-big button {
-    font-size: 38px;
-}
-
 .stars-label {
     margin-top: 4px;
     color: var(--muted);
@@ -1114,17 +1151,19 @@ h3 {
     border-color: var(--accent);
 }
 
+/* Arriba a la derecha: así no tapa ni los botones ni el calificador */
 .toast {
     position: fixed;
-    left: 50%;
-    bottom: calc(var(--tabbar) + 88px + env(safe-area-inset-bottom));
-    z-index: 50;
+    top: calc(12px + env(safe-area-inset-top));
+    right: 12px;
+    z-index: 60;
     display: flex;
     align-items: center;
     gap: 12px;
     max-width: calc(100vw - 24px);
     white-space: nowrap;
-    transform: translateX(-50%);
+    cursor: pointer;
+    animation: toast-in 0.18s ease;
     padding: 10px 14px 10px 18px;
     border-radius: 999px;
     background: var(--text);
@@ -1367,31 +1406,74 @@ h3 {
     font-weight: 700;
 }
 
-/* Aviso en la tarjeta de la baraja */
-.card-friends {
-    display: inline-flex;
+/* La burbuja de amigos, arriba a la izquierda del póster */
+.friend-bubble {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 3;
+    display: flex;
     align-items: center;
-    gap: 6px;
-    align-self: flex-start;
-    margin-bottom: 6px;
-    padding: 4px 10px;
+    padding: 4px 8px 4px 4px;
     border-radius: 999px;
-    background: rgba(34, 197, 94, 0.22);
-    border: 1px solid rgba(34, 197, 94, 0.5);
+    border: 1.5px solid rgba(34, 197, 94, 0.9);
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 6px 18px -8px rgba(0, 0, 0, 0.9);
+    touch-action: manipulation;
+}
+
+.friend-bubble.is-watchlist {
+    border-color: rgba(245, 185, 66, 0.9);
+}
+
+.friend-bubble:active {
+    transform: scale(0.95);
+}
+
+.bubble-face {
+    display: block;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 2px solid rgba(0, 0, 0, 0.6);
+    background: var(--surface-2);
+}
+
+.bubble-face + .bubble-face {
+    margin-left: -10px;
+}
+
+.bubble-face img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.bubble-face i {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 0.72rem;
+    font-style: normal;
+    font-weight: 800;
+}
+
+.bubble-more {
+    margin-left: 4px;
     color: #fff;
     font-size: 0.74rem;
-    font-weight: 700;
-    backdrop-filter: blur(6px);
+    font-weight: 800;
 }
 
-.card-friends.is-watchlist {
-    background: rgba(245, 185, 66, 0.22);
-    border-color: rgba(245, 185, 66, 0.5);
-}
-
-.card-friends svg {
-    width: 14px;
-    height: 14px;
+/* El chip de dirección del orden */
+.chip.is-direction {
+    gap: 6px;
+    padding: 7px 12px;
 }
 
 /* Fichas de selección (amigos, listas) */
@@ -1795,6 +1877,13 @@ h3 {
     inset: 0;
     background: linear-gradient(100deg, transparent 20%, color-mix(in srgb, var(--surface) 70%, transparent) 50%, transparent 80%);
     animation: shine 1.3s infinite;
+}
+
+@keyframes toast-in {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
 }
 
 @keyframes shine {
