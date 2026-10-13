@@ -19,6 +19,7 @@ import ProfileEditor from "./components/ProfileEditor";
 import { useLibrary } from "./lib/library";
 import { useFriends } from "./lib/friends";
 import { friendsBadge } from "./lib/social";
+import { splitRated } from "./lib/ratings";
 import { toAvatarDataUrl } from "./lib/image";
 import { cloudEnabled, loginWithGoogle, logout } from "./lib/firebase";
 import { buildTaste, filterDeck, libraryStats, rankDeck } from "./lib/taste";
@@ -48,7 +49,8 @@ const TIPS_KEY = "que-veo:tips:v1";
 const byRecent = (a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "");
 
 const LIST_NAMES = {
-    liked: "Calificadas",
+    liked: "Me gustaron",
+    disliked: "No me gustaron",
     watchlist: "Quiero verlas",
     skipped: "No las he visto",
 };
@@ -335,9 +337,10 @@ export default function App() {
 
     const visibleList = useMemo(() => {
         if (listView?.kind !== "mine") return [];
-        // "Calificadas" junta lo que calificaste ahora y lo que antes marcabas
-        // como "no me gustó", que ya no existe como botón
-        if (listView.id === "liked") return [...lists.liked, ...lists.disliked].sort(byRecent);
+        // Lo calificado se parte por la nota: 3★ o más de un lado, el resto del otro
+        if (listView.id === "liked" || listView.id === "disliked") {
+            return splitRated(lists)[listView.id].sort(byRecent);
+        }
         return lists[listView.id];
     }, [lists, listView]);
 

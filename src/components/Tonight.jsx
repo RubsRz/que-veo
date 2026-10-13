@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Sheet from "./Sheet";
 import { tonightPick } from "../lib/taste";
+import { splitRated } from "../lib/ratings";
 
 /** Dado, para el botón que elige por ti. */
 const Dice = () => (
@@ -23,7 +24,6 @@ const SOURCES = [
     { id: "watchlist", label: "Mis pendientes" },
     { id: "liked", label: "Las que me gustaron" },
     { id: "friends", label: "Lo que les gustó a mis amigos" },
-    { id: "skipped", label: "Las que descarté" },
     { id: "fresh", label: "Nuevas (del catálogo)" },
 ];
 
@@ -31,7 +31,8 @@ const SOURCES = [
 export default function Tonight({ lists, providers, onClose, onOpen, onFresh, friendPicks = [] }) {
     const [maxMinutes, setMaxMinutes] = useState(0);
     const [providerId, setProviderId] = useState(0);
-    const [sources, setSources] = useState({ watchlist: true, liked: true, friends: true, skipped: false, fresh: true });
+    // De inicio, solo tus pendientes: lo demás lo prendes tú
+    const [sources, setSources] = useState({ watchlist: true, liked: false, friends: false, fresh: false });
     const [pick, setPick] = useState(null);
     const [searched, setSearched] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -42,6 +43,7 @@ export default function Tonight({ lists, providers, onClose, onOpen, onFresh, fr
     const countOf = (id) => {
         if (id === "fresh") return null;
         if (id === "friends") return friendPicks.length;
+        if (id === "liked") return splitRated(lists).liked.length;
         return lists[id]?.length ?? 0;
     };
 
@@ -51,9 +53,8 @@ export default function Tonight({ lists, providers, onClose, onOpen, onFresh, fr
 
         const pool = [
             ...(sources.watchlist ? lists.watchlist : []),
-            ...(sources.liked ? lists.liked : []),
+            ...(sources.liked ? splitRated(lists).liked : []),
             ...(sources.friends ? friendPicks : []),
-            ...(sources.skipped ? lists.skipped : []),
             ...(sources.fresh ? await onFresh() : []),
         ];
 
@@ -63,9 +64,8 @@ export default function Tonight({ lists, providers, onClose, onOpen, onFresh, fr
 
     const count = [
         sources.watchlist && lists.watchlist.length,
-        sources.liked && lists.liked.length,
+        sources.liked && splitRated(lists).liked.length,
         sources.friends && friendPicks.length,
-        sources.skipped && lists.skipped.length,
     ].reduce((sum, value) => sum + (value || 0), 0);
 
     return (
@@ -159,7 +159,7 @@ function sourceLabel(item) {
     return {
         watchlist: "De tus pendientes",
         liked: `Ya la viste${item.stars ? ` y le diste ${item.stars}★` : ""}`,
-        skipped: "La habías descartado",
+        skipped: "La habías pasado de largo",
         disliked: "No te gustó",
     }[item.decision];
 }

@@ -19,5 +19,20 @@ const BY_VALUE = new Map(SCALE.map((step) => [step.value, step]));
 
 export const ratingInfo = (value) => BY_VALUE.get(value) ?? null;
 
+/** De 3★ para arriba te gustó; de 2.5★ para abajo, no. */
+export const likedIt = (entry) => (entry.stars ?? 3) >= 3;
+
+/**
+ * Parte lo calificado en dos listas. Las viejas de "no me gustó" (cuando era un
+ * botón) caen del lado que les toca aunque no tengan estrellas.
+ */
+export function splitRated(lists) {
+    const rated = [...lists.liked, ...lists.disliked];
+    return {
+        liked: rated.filter((entry) => entry.decision !== "disliked" && likedIt(entry)),
+        disliked: rated.filter((entry) => entry.decision === "disliked" || !likedIt(entry)),
+    };
+}
+
 /** De 0.5 a 5 estrellas a un peso de -1 a 1, para el perfil de gustos. */
 export const ratingWeight = (stars) => Math.max(-1, Math.min(1, (stars - 2.75) / 2.25));

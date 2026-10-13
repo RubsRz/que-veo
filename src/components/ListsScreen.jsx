@@ -1,8 +1,11 @@
 import Avatar from "./Avatar";
 
+import { splitRated } from "../lib/ratings";
+
 const MINE = [
-    { id: "liked", label: "Calificadas", hint: "Las que ya viste" },
+    { id: "liked", label: "Me gustaron", hint: "Las que calificaste con 3★ o más" },
     { id: "watchlist", label: "Quiero verlas", hint: "Tus pendientes" },
+    { id: "disliked", label: "No me gustaron", hint: "Las que calificaste bajo" },
     { id: "skipped", label: "No las he visto", hint: "Las que pasaste de largo" },
 ];
 
@@ -22,8 +25,8 @@ function Stack({ items }) {
     );
 }
 
-/** Las calificadas incluyen las viejas de "no me gustó", que ya no se marcan así. */
-const total = (lists, id) => (id === "liked" ? lists.liked.length + lists.disliked.length : lists[id].length);
+/** Lo calificado se parte por la nota; lo demás va tal cual. */
+const itemsOf = (lists, id) => (id === "liked" || id === "disliked" ? splitRated(lists)[id] : lists[id]);
 
 /** Índice de listas: las tuyas y las que llevas con alguien más. */
 export default function ListsScreen({ lists, sharedLists, onOpenMine, onOpenShared, onNewShared, onTonight, canShare }) {
@@ -43,12 +46,12 @@ export default function ListsScreen({ lists, sharedLists, onOpenMine, onOpenShar
             <div className="list-grid">
                 {MINE.map((item) => (
                     <button key={item.id} type="button" className="list-card" onClick={() => onOpenMine(item.id)}>
-                        <Stack items={item.id === "liked" ? [...lists.liked, ...lists.disliked] : lists[item.id]} />
+                        <Stack items={itemsOf(lists, item.id)} />
                         <span className="list-card-text">
                             <b>{item.label}</b>
                             <small>
-                                {total(lists, item.id)
-                                    ? `${total(lists, item.id)} ${total(lists, item.id) === 1 ? "título" : "títulos"}`
+                                {itemsOf(lists, item.id).length
+                                    ? `${itemsOf(lists, item.id).length} ${itemsOf(lists, item.id).length === 1 ? "título" : "títulos"}`
                                     : item.hint}
                             </small>
                         </span>
