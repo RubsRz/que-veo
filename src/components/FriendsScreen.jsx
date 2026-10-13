@@ -10,6 +10,7 @@ const Icon = ({ path, size = 18 }) => (
 );
 
 const COPY = "M9 9h10v10H9zM5 15V5h10";
+const SEARCH = "M11 4.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM16 16l4.5 4.5";
 const CHECK = "M5 12.5l4.5 4.5L19 7";
 const CROSS = "M6 6l12 12M18 6L6 18";
 const PLUS = "M12 5v14M5 12h14";
@@ -31,6 +32,7 @@ export default function FriendsScreen({
 }) {
     const [code, setCode] = useState("");
     const [encontrado, setEncontrado] = useState(null);
+    const [buscando, setBuscando] = useState(false);
     const [busy, setBusy] = useState(false);
 
     if (!cloudEnabled || !user) {
@@ -89,9 +91,31 @@ export default function FriendsScreen({
     async function buscar(valor) {
         setCode(valor);
         setEncontrado(null);
-        if (valor.replace(/[^a-z0-9._-]/gi, "").length < 3) return;
+        if (valor.replace(/[^a-z0-9._-]/gi, "").length < 3) {
+            setBuscando(false);
+            return;
+        }
+        setBuscando(true);
         const encontrada = await social.lookup(valor).catch(() => null);
+        setBuscando(false);
         if (encontrada && encontrada.username !== profile?.username) setEncontrado(encontrada);
+    }
+
+    /** Si ya hay algo con esa persona, el botón lo dice en vez de invitar de nuevo. */
+    function estadoCon(uid) {
+        if (friends.some((friend) => friend.uid === uid)) return "Ya son amigos";
+        if (sent.some((friend) => friend.uid === uid)) return "Invitación enviada";
+        if (requests.some((friend) => friend.uid === uid)) return "Te invitó: acéptalo abajo";
+        return null;
+    }
+
+    async function copiar() {
+        try {
+            await navigator.clipboard.writeText(`https://que-veo.netlify.app/?u=${profile?.username}`);
+            onToast("Link copiado");
+        } catch {
+            onToast("No se pudo copiar");
+        }
     }
 
     async function share() {
@@ -109,40 +133,74 @@ export default function FriendsScreen({
 
     return (
         <main className="screen">
-            <section className="code-box">
-                <div>
-                    <p className="sheet-meta">Tu usuario</p>
-                    <b className="code">@{profile?.username ?? "…"}</b>
+            <section className="me-card">
+                <div className="me-top">
+                    <Avatar user={{ displayName: profile?.name }} photo={profile?.photo} />
+                    <div className="me-text">
+                        <b>{profile?.name ?? "Tú"}</b>
+                        <span className="me-user">@{profile?.username ?? "…"}</span>
+                    </div>
                 </div>
-                <button type="button" className="btn btn-ghost" onClick={share}>
-                    <Icon path={navigator.share ? SHARE : COPY} /> Compartir
-                </button>
+                <div className="me-actions">
+                    <button type="button" className="btn btn-primary" onClick={share}>
+                        <Icon path={navigator.share ? SHARE : COPY} size={17} />
+                        Compartir mi link
+                    </button>
+                    <button type="button" className="btn btn-ghost" onClick={copiar} aria-label="Copiar mi link">
+                        <Icon path={COPY} size={17} />
+                    </button>
+                </div>
             </section>
 
-            <form className="code-form" onSubmit={add}>
+            <form className="search-friend" onSubmit={add} role="search">
+                <Icon path={SEARCH} size={17} />
                 <input
                     value={code}
                     onChange={(event) => buscar(event.target.value.toLowerCase())}
-                    placeholder="Busca por usuario: @alguien"
+                    placeholder="Buscar por usuario"
                     maxLength={21}
                     autoCapitalize="none"
                     autoCorrect="off"
-                    aria-label="Usuario de tu amigo"
+                    spellCheck="false"
+                    enterKeyHint="search"
+                    aria-label="Buscar a un amigo por su usuario"
                 />
-                <button type="submit" className="btn btn-primary" disabled={busy}>
-                    <Icon path={PLUS} /> Agregar
-                </button>
+                {code && (
+                    <button
+                        type="button"
+                        className="search-clear"
+                        onClick={() => {
+                            setCode("");
+                            setEncontrado(null);
+                        }}
+                        aria-label="Limpiar"
+                    >
+                        <Icon path={CROSS} size={14} />
+                    </button>
+                )}
             </form>
 
+            {buscando && <p className="search-state">Buscando…</p>}
+
+            {!buscando && code.length >= 3 && !encontrado && (
+                <p className="search-state">No hay nadie con ese usuario</p>
+            )}
+
             {encontrado && (
-                <button type="button" className="friend-row is-button" onClick={add}>
+                <div className="friend-row">
                     <Avatar user={{ displayName: encontrado.name }} photo={encontrado.photo} />
                     <span className="grow">
                         <b>{encontrado.name ?? "Alguien"}</b>
                         <small>@{encontrado.username}</small>
                     </span>
-                    <span className="chip is-ghost">Agregar</span>
-                </button>
+                    {estadoCon(encontrado.uid) ? (
+                        <span className="row-state">{estadoCon(encontrado.uid)}</span>
+                    ) : (
+                        <button type="button" className="btn btn-primary btn-small" disabled={busy} onClick={add}>
+                            <Icon path={PLUS} size={15} /> Agregar
+                        </button>
+                    )}
+                </div>
             )}
 
             {requests.length > 0 && (
@@ -221,7 +279,7 @@ export default function FriendsScreen({
             )}
 
             <h3 className="section-title">Tus amigos · {friends.length}</h3>
-            {friends.length === 0 && <p className="notice">Pásale tu código a alguien para empezar.</p>}
+            {friends.length === 0 && <p className="notice">Busca a alguien por su usuario o pásale tu link.</p>}
             {friends.map((friend) => {
                 const match = affinity(library, libraries[friend.uid] ?? {});
                 return (
