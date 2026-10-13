@@ -31,11 +31,12 @@ async function ensureProfile(user, photo, name) {
     const existing = await getDoc(reference);
 
     if (existing.exists() && existing.data().code) {
-        // Lo que tú hayas puesto manda; de Google solo se toma lo que falte
+        // Primero lo que tú pusiste en tu perfil, luego lo que ya estaba guardado
+        // y hasta el final lo de Google. Si no, tu foto propia nunca llegaba aquí.
         const saved = existing.data();
         const data = {
-            name: saved.name ?? profileOf(user, photo, name).name,
-            photo: saved.photo ?? profileOf(user, photo, name).photo,
+            name: name ?? saved.name ?? user.displayName ?? "Alguien",
+            photo: photo ?? saved.photo ?? user.photoURL ?? null,
             code: saved.code,
         };
         await setDoc(reference, data, { merge: true });
