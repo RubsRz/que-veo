@@ -171,15 +171,35 @@ export default function SwipeCard({ item, onDecide, onOpen, onPoster, onFriends,
                     aria-label={friends.text}
                     title={friends.text}
                 >
-                    {friends.people.slice(0, friends.people.length > 3 ? 2 : 3).map((person) => (
-                        <span key={person.uid} className="bubble-face">
-                            {person.photo ? (
-                                <img src={person.photo} alt="" referrerPolicy="no-referrer" />
-                            ) : (
-                                <i>{(person.name ?? "?").slice(0, 1).toUpperCase()}</i>
-                            )}
-                        </span>
-                    ))}
+                    {(() => {
+                        const caras = friends.people.slice(0, friends.people.length > 3 ? 2 : 3);
+                        return caras.map((person, index) => (
+                            <span key={person.uid} className="bubble-slot">
+                                <span className="bubble-face">
+                                    {person.photo ? (
+                                        <img src={person.photo} alt="" referrerPolicy="no-referrer" />
+                                    ) : (
+                                        <i>{(person.name ?? "?").slice(0, 1).toUpperCase()}</i>
+                                    )}
+                                </span>
+                                {/* La estrellita va pegada a la última foto */}
+                                {index === caras.length - 1 && (
+                                    <span className="bubble-badge" aria-hidden="true">
+                                        {friends.kind === "liked" ? (
+                                            <svg viewBox="0 0 24 24">
+                                                <path d="M12 3.6l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.6 9.7l5.8-.8z" />
+                                            </svg>
+                                        ) : (
+                                            <svg viewBox="0 0 24 24">
+                                                <circle cx="12" cy="12" r="9" />
+                                                <path d="M12 7.6V12l2.8 1.7" fill="none" stroke="#1a1405" strokeWidth="2.6" strokeLinecap="round" />
+                                            </svg>
+                                        )}
+                                    </span>
+                                )}
+                            </span>
+                        ));
+                    })()}
                     {friends.people.length > 3 && <span className="bubble-more">+{friends.people.length - 2}</span>}
                 </button>
             )}

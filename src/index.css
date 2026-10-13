@@ -1542,7 +1542,7 @@ h3 {
     font-weight: 700;
 }
 
-/* La burbuja de amigos, arriba a la izquierda del póster */
+/* La burbuja de amigos: solo su foto, con una estrellita, flotando despacio */
 .friend-bubble {
     position: absolute;
     top: 12px;
@@ -1550,35 +1550,44 @@ h3 {
     z-index: 3;
     display: flex;
     align-items: center;
-    padding: 4px 8px 4px 4px;
-    border-radius: 999px;
-    border: 1.5px solid rgba(34, 197, 94, 0.9);
-    background: rgba(0, 0, 0, 0.55);
-    backdrop-filter: blur(8px);
-    box-shadow: 0 6px 18px -8px rgba(0, 0, 0, 0.9);
+    padding: 0;
+    animation: flotar 3.4s ease-in-out infinite;
+    filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.75));
     touch-action: manipulation;
 }
 
-.friend-bubble.is-watchlist {
-    border-color: rgba(245, 185, 66, 0.9);
+@keyframes flotar {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-3.5px);
+    }
 }
 
 .friend-bubble:active {
-    transform: scale(0.95);
+    animation: none;
+    transform: scale(0.94);
+}
+
+.bubble-slot {
+    position: relative;
+    display: block;
+}
+
+.bubble-slot + .bubble-slot {
+    margin-left: -14px;
 }
 
 .bubble-face {
     display: block;
-    width: 28px;
-    height: 28px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     overflow: hidden;
-    border: 2px solid rgba(0, 0, 0, 0.6);
+    border: 2px solid rgba(255, 255, 255, 0.9);
     background: var(--surface-2);
-}
-
-.bubble-face + .bubble-face {
-    margin-left: -10px;
 }
 
 .bubble-face img {
@@ -1594,13 +1603,42 @@ h3 {
     height: 100%;
     background: var(--accent-soft);
     color: var(--accent);
-    font-size: 0.72rem;
+    font-size: 0.9rem;
     font-style: normal;
     font-weight: 800;
 }
 
+/* La estrellita, pegada arriba a la derecha del círculo */
+.bubble-badge {
+    position: absolute;
+    top: -2px;
+    right: -4px;
+    display: grid;
+    place-items: center;
+    width: 19px;
+    height: 19px;
+    border-radius: 50%;
+    border: 2px solid var(--bg);
+    background: var(--watch);
+    color: var(--watch);
+}
+
+.bubble-badge svg {
+    width: 11px;
+    height: 11px;
+    fill: #1a1405;
+}
+
 .bubble-more {
-    margin-left: 4px;
+    align-self: center;
+}
+
+.bubble-more {
+    margin-left: 6px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(6px);
     color: #fff;
     font-size: 0.74rem;
     font-weight: 800;
