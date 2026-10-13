@@ -11,6 +11,31 @@ export function friendshipId(a, b) {
     return [a, b].sort().join("_");
 }
 
+/** Deja un usuario como se guarda: minúsculas, sin acentos ni símbolos raros. */
+export function normalizeUsername(value = "") {
+    return value
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9._-]/g, "")
+        .replace(/^[._-]+/, "")
+        .slice(0, 20);
+}
+
+export const usernameError = (value) => {
+    if (value.length < 3) return "Mínimo 3 caracteres";
+    if (value.length > 20) return "Máximo 20 caracteres";
+    if (!/^[a-z0-9][a-z0-9._-]*$/.test(value)) return "Solo letras, números, punto, guion y guion bajo";
+    return null;
+};
+
+/** El usuario que se propone al entrar: lo que va antes del @ de tu correo. */
+export const suggestUsername = (email = "", random = Math.random) => {
+    const base = normalizeUsername(email.split("@")[0] ?? "");
+    if (base.length >= 3) return base;
+    return `cinefilo${Math.floor(random() * 9000) + 1000}`;
+};
+
 /** Código para compartir: 6 caracteres sin los que se confunden (O/0, I/1). */
 export function makeCode(random = Math.random) {
     const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";

@@ -16,6 +16,7 @@ import ListDetail from "./components/ListDetail";
 import ShareSheet from "./components/ShareSheet";
 import WhoLikedSheet from "./components/WhoLikedSheet";
 import ProfileEditor from "./components/ProfileEditor";
+import AddFriendSheet from "./components/AddFriendSheet";
 import { useLibrary } from "./lib/library";
 import { useFriends } from "./lib/friends";
 import { friendsBadge } from "./lib/social";
@@ -81,6 +82,9 @@ export default function App() {
     const [openFriend, setOpenFriend] = useState(null);
     const [whoItem, setWhoItem] = useState(null); // a quiénes les gustó el título de la tarjeta
     const [editingProfile, setEditingProfile] = useState(false);
+    // Invitación que llega por link: /?u=alguien
+    const [invitacion, setInvitacion] = useState(() => new URLSearchParams(location.search).get("u"));
+    const [invitado, setInvitado] = useState(null);
     // La primera vez conviene decir cómo se usa la baraja
     const [showTips, setShowTips] = useState(() => !localStorage.getItem(TIPS_KEY));
     const [shareItem, setShareItem] = useState(null); // título a compartir; `true` = solo crear lista
@@ -101,6 +105,14 @@ export default function App() {
     const displayName = name ?? user?.displayName ?? null;
     // Para el puntito de la pestaña: invitaciones sin contestar y recomendaciones sin abrir
     const novedadesSociales = social.requests.length + social.recs.length;
+
+    // Si vienes de un link de invitación, se busca a quién te quieren presentar
+    useEffect(() => {
+        if (!invitacion) return;
+        history.replaceState(null, "", location.pathname); // que el link no se quede pegado
+        if (!social.enabled) return;
+        social.lookup(invitacion).then((encontrado) => encontrado && setInvitado(encontrado));
+    }, [invitacion, social.enabled]); // eslint-disable-line react-hooks/exhaustive-deps
 
     /** Lo que les gustó a tus amigos y tú no has visto, para "¿qué vemos hoy?". */
     const friendPicks = useMemo(() => {
@@ -675,11 +687,43 @@ export default function App() {
                 />
             )}
 
+            {invitacion && (
+                <AddFriendSheet
+                    username={invitacion}
+                    person={invitado}
+                    user={user}
+                    onLogin={handleLogin}
+                    onAdd={() =>
+                        social
+                            .invite(invitacion)
+                            .then((nombre) => setToast(`Invitación enviada a ${nombre}`))
+                            .catch((error) => setToast(error.message))
+                            .finally(() => setInvitacion(null))
+                    }
+                    onClose={() => setInvitacion(null)}
+                />
+            )}
+
             {editingProfile && (
                 <ProfileEditor
                     user={user}
                     photo={photo}
                     name={displayName}
+                    username={social.profile?.username}
+                    onSaveUsername={
+                        social.enabled
+                            ? async (nuevo) => {
+                                  try {
+                                      await social.changeUsername(nuevo);
+                                      setToast("Usuario actualizado");
+                                      return null;
+                                  } catch (error) {
+                                      setToast(error.message);
+                                      return error.message;
+                                  }
+                              }
+                            : null
+                    }
                     onPickPhoto={() => photoInput.current?.click()}
                     onRemovePhoto={() => {
                         savePhoto(null);

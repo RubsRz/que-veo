@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
     affinity,
+    normalizeUsername,
+    suggestUsername,
+    usernameError,
     friendsBadge,
     friendshipId,
     makeCode,
@@ -192,5 +195,25 @@ describe("con la escala nueva", () => {
     it("menos de 3★ ya no se anuncia como que le gustó", () => {
         const ratings = ratingsByItem({ ana: library(title("x", "liked", { stars: 1.5 })) }, [ANA]);
         expect(friendsBadge(ratings["x"])).toBeNull();
+    });
+});
+
+describe("usuarios", () => {
+    it("limpia lo que escribes", () => {
+        expect(normalizeUsername("Rubén.Rz_2026")).toBe("ruben.rz_2026");
+        expect(normalizeUsername("  @Hola Mundo!! ")).toBe("holamundo");
+    });
+
+    it("propone el usuario a partir del correo", () => {
+        expect(suggestUsername("alejandroperez858.ra@gmail.com")).toBe("alejandroperez858.ra");
+    });
+
+    it("si el correo no da para un usuario, inventa uno", () => {
+        expect(suggestUsername("a@b.com", () => 0.5)).toMatch(/^cinefilo\d{4}$/);
+    });
+
+    it("avisa cuando no sirve", () => {
+        expect(usernameError("ab")).toMatch(/3 caracteres/);
+        expect(usernameError("rubsrz")).toBeNull();
     });
 });

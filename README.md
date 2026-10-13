@@ -28,7 +28,9 @@ armas tus listas y la app aprende qué te gusta para irte mostrando mejores opci
 
 ### Con amigos
 
-- **Te agregas con un código** de seis caracteres; la otra persona acepta y listo.
+- **Te agregas por usuario**: cada quien tiene el suyo (sale de tu correo y lo puedes cambiar).
+  Lo buscas y te aparece de quién se trata antes de invitar, o le pasas tu link
+  (`que-veo.netlify.app/?u=tuusuario`) y a quien lo abra le saldrá “¿quieres agregar a…?”.
 - **En la baraja te avisa** con una burbuja en el póster: las fotos de quienes ya la vieron
   (dos y un “+N” si son más de tres). Al tocarla se ve quién dijo qué y con cuántas estrellas.
 - **Afinidad**: de los títulos que los dos vieron, en cuántos opinaron igual.
@@ -106,7 +108,7 @@ Dos piezas se llevan el cuidado extra porque en el celular es donde se siente la
   Escape y jalarla hacia abajo) y nunca puede quedar montada "a medias".
 
 La lógica de gustos y la social están separadas de React y no tocan el navegador, así que se
-prueban solas: **53 pruebas** cubren el perfil de géneros, el arranque en frío, el orden de la
+prueban solas: **57 pruebas** cubren el perfil de géneros, el arranque en frío, el orden de la
 baraja, los filtros de “qué vemos hoy”, el cálculo de afinidad, quién opinó de cada título y
 qué proponerles para ver juntos.
 

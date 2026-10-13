@@ -30,6 +30,7 @@ export default function FriendsScreen({
     onToast,
 }) {
     const [code, setCode] = useState("");
+    const [encontrado, setEncontrado] = useState(null);
     const [busy, setBusy] = useState(false);
 
     if (!cloudEnabled || !user) {
@@ -76,6 +77,7 @@ export default function FriendsScreen({
             const name = await social.invite(code);
             onToast(`Invitación enviada a ${name}`);
             setCode("");
+            setEncontrado(null);
         } catch (error) {
             onToast(error.message);
         } finally {
@@ -83,8 +85,17 @@ export default function FriendsScreen({
         }
     }
 
+    /** Se busca mientras escribes, para ver a quién vas a agregar. */
+    async function buscar(valor) {
+        setCode(valor);
+        setEncontrado(null);
+        if (valor.replace(/[^a-z0-9._-]/gi, "").length < 3) return;
+        const encontrada = await social.lookup(valor).catch(() => null);
+        if (encontrada && encontrada.username !== profile?.username) setEncontrado(encontrada);
+    }
+
     async function share() {
-        const text = `Agrégame en QuéVeo con mi código ${profile?.code}: https://que-veo.netlify.app`;
+        const text = `Agrégame en QuéVeo: https://que-veo.netlify.app/?u=${profile?.username}`;
         try {
             if (navigator.share) await navigator.share({ text });
             else {
@@ -100,8 +111,8 @@ export default function FriendsScreen({
         <main className="screen">
             <section className="code-box">
                 <div>
-                    <p className="sheet-meta">Tu código</p>
-                    <b className="code">{profile?.code ?? "…"}</b>
+                    <p className="sheet-meta">Tu usuario</p>
+                    <b className="code">@{profile?.username ?? "…"}</b>
                 </div>
                 <button type="button" className="btn btn-ghost" onClick={share}>
                     <Icon path={navigator.share ? SHARE : COPY} /> Compartir
@@ -111,15 +122,28 @@ export default function FriendsScreen({
             <form className="code-form" onSubmit={add}>
                 <input
                     value={code}
-                    onChange={(event) => setCode(event.target.value.toUpperCase())}
-                    placeholder="Código de tu amigo (ABC-123)"
-                    maxLength={7}
-                    aria-label="Código de tu amigo"
+                    onChange={(event) => buscar(event.target.value.toLowerCase())}
+                    placeholder="Busca por usuario: @alguien"
+                    maxLength={21}
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    aria-label="Usuario de tu amigo"
                 />
                 <button type="submit" className="btn btn-primary" disabled={busy}>
                     <Icon path={PLUS} /> Agregar
                 </button>
             </form>
+
+            {encontrado && (
+                <button type="button" className="friend-row is-button" onClick={add}>
+                    <Avatar user={{ displayName: encontrado.name }} photo={encontrado.photo} />
+                    <span className="grow">
+                        <b>{encontrado.name ?? "Alguien"}</b>
+                        <small>@{encontrado.username}</small>
+                    </span>
+                    <span className="chip is-ghost">Agregar</span>
+                </button>
+            )}
 
             {requests.length > 0 && (
                 <>

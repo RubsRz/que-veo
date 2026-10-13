@@ -15,7 +15,7 @@ import {
     where,
 } from "firebase/firestore";
 import { cloudEnabled, db } from "./firebase";
-import { friendshipId, makeCode, normalizeCode, ratingsByItem } from "./social";
+import { friendshipId, normalizeUsername, ratingsByItem, suggestUsername, usernameError } from "./social";
 
 /** Lo que de verdad importa compartir: lo descartado no sale de tu cuenta. */
 const SHARED_DECISIONS = ["liked", "disliked", "watchlist"];
@@ -26,37 +26,46 @@ const profileOf = (user, photo, name) => ({
 });
 
 /** Mi perfil público y mi código para compartir; se crean la primera vez. */
+/** Aparta un usuario para ti. Devuelve false si ya estaba ocupado. */
+async function claimUsername(username, uid) {
+    try {
+        // Escribir sobre uno que ya existe cuenta como update, y eso lo cierran las reglas
+        await setDoc(doc(db, "codes", username), { uid, username });
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 async function ensureProfile(user, photo, name) {
     const reference = doc(db, "profiles", user.uid);
     const existing = await getDoc(reference);
 
-    if (existing.exists() && existing.data().code) {
+    if (existing.exists() && existing.data().username) {
         // Primero lo que tú pusiste en tu perfil, luego lo que ya estaba guardado
         // y hasta el final lo de Google. Si no, tu foto propia nunca llegaba aquí.
         const saved = existing.data();
         const data = {
             name: name ?? saved.name ?? user.displayName ?? "Alguien",
             photo: photo ?? saved.photo ?? user.photoURL ?? null,
-            code: saved.code,
+            username: saved.username,
         };
         await setDoc(reference, data, { merge: true });
         return data;
     }
 
-    // Se intenta hasta dar con un código libre: escribir sobre uno que ya existe
-    // lo rechazan las reglas, así que el choque se nota aquí
-    for (let attempt = 0; attempt < 6; attempt += 1) {
-        const code = makeCode();
-        try {
-            await setDoc(doc(db, "codes", code), { uid: user.uid });
-            const data = { ...profileOf(user, photo, name), code };
+    // Primera vez (o cuenta vieja, que solo tenía código): se le propone el
+    // usuario a partir del correo y se le van pegando números si está ocupado
+    const base = suggestUsername(user.email ?? user.displayName ?? "");
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+        const username = attempt === 0 ? base : `${base.slice(0, 17)}${Math.floor(Math.random() * 900) + 100}`;
+        if (await claimUsername(username, user.uid)) {
+            const data = { ...profileOf(user, photo, name), username };
             await setDoc(reference, data, { merge: true });
             return data;
-        } catch {
-            // código ocupado, va otro
         }
     }
-    throw new Error("No se pudo generar tu código");
+    throw new Error("No se pudo crear tu usuario");
 }
 
 /**
@@ -195,15 +204,25 @@ export function useFriends(user, photo, name) {
 
     const ratings = useMemo(() => ratingsByItem(libraries, friends), [libraries, friends]);
 
-    /** Mandar invitación con el código que te pasaron. */
-    const invite = useCallback(
-        async (rawCode) => {
-            const code = normalizeCode(rawCode);
-            if (!profile) throw new Error("Primero entra con tu cuenta");
-            if (code === profile.code) throw new Error("Ese es tu propio código");
+    /** Buscar a alguien por su usuario. */
+    const lookup = useCallback(async (rawUsername) => {
+        const username = normalizeUsername(rawUsername);
+        const found = await getDoc(doc(db, "codes", username));
+        if (!found.exists()) return null;
+        const uid = found.data().uid;
+        const theirProfile = await getDoc(doc(db, "profiles", uid));
+        return { uid, username, ...(theirProfile.data() ?? {}) };
+    }, []);
 
-            const found = await getDoc(doc(db, "codes", code));
-            if (!found.exists()) throw new Error("No encontré a nadie con ese código");
+    /** Mandar invitación al usuario que te pasaron. */
+    const invite = useCallback(
+        async (rawUsername) => {
+            const username = normalizeUsername(rawUsername);
+            if (!profile) throw new Error("Primero entra con tu cuenta");
+            if (username === profile.username) throw new Error("Ese eres tú");
+
+            const found = await getDoc(doc(db, "codes", username));
+            if (!found.exists()) throw new Error(`No encontré a nadie con el usuario @${username}`);
 
             const other = found.data().uid;
             const theirProfile = await getDoc(doc(db, "profiles", other));
@@ -239,6 +258,24 @@ export function useFriends(user, photo, name) {
     const publishProfile = useCallback(
         (fields) => (enabled ? setDoc(doc(db, "profiles", user.uid), fields, { merge: true }) : Promise.resolve()),
         [enabled, user],
+    );
+
+    /** Cambiar tu usuario: se aparta el nuevo y se suelta el viejo. */
+    const changeUsername = useCallback(
+        async (raw) => {
+            const username = normalizeUsername(raw);
+            const problema = usernameError(username);
+            if (problema) throw new Error(problema);
+            if (!profile) throw new Error("Primero entra con tu cuenta");
+            if (username === profile.username) return username;
+
+            if (!(await claimUsername(username, user.uid))) throw new Error("Ese usuario ya está ocupado");
+            await setDoc(doc(db, "profiles", user.uid), { username }, { merge: true });
+            if (profile.username) await deleteDoc(doc(db, "codes", profile.username)).catch(() => {});
+            setProfile((current) => ({ ...current, username }));
+            return username;
+        },
+        [profile, user],
     );
 
     const accept = useCallback((friend) => updateDoc(doc(db, "friendships", friend.id), { status: "accepted" }), []);
@@ -329,6 +366,8 @@ export function useFriends(user, photo, name) {
         recs,
         lists,
         invite,
+        lookup,
+        changeUsername,
         publishProfile,
         accept,
         remove,

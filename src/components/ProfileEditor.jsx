@@ -6,13 +6,18 @@ import Sheet from "./Sheet";
  * Editar tu perfil: la foto en grande y tu nombre. La foto se cambia desde un
  * menú que sube desde abajo, con las dos únicas opciones que hacen falta.
  */
-export default function ProfileEditor({ user, photo, name, onSave, onPickPhoto, onRemovePhoto, onClose }) {
+export default function ProfileEditor({ user, photo, name, username, onSave, onSaveUsername, onPickPhoto, onRemovePhoto, onClose }) {
     const [value, setValue] = useState(name ?? "");
+    const [usuario, setUsuario] = useState(username ?? "");
     const [menu, setMenu] = useState(false);
     const input = useRef(null);
 
-    function guardar() {
+    async function guardar() {
         onSave(value.trim());
+        if (onSaveUsername && usuario !== username) {
+            const problema = await onSaveUsername(usuario);
+            if (problema) return; // se queda abierto para que lo corrijas
+        }
         onClose();
     }
 
@@ -48,8 +53,26 @@ export default function ProfileEditor({ user, photo, name, onSave, onPickPhoto, 
                         placeholder="Como quieres que te vean"
                         maxLength={40}
                     />
+                    {onSaveUsername && (
+                        <>
+                            <label className="field-label" htmlFor="usuario" style={{ marginTop: 16 }}>
+                                Tu usuario
+                            </label>
+                            <input
+                                id="usuario"
+                                className="field-input"
+                                value={usuario}
+                                onChange={(event) => setUsuario(event.target.value.toLowerCase())}
+                                onKeyDown={(event) => event.key === "Enter" && guardar()}
+                                placeholder="comotellaman"
+                                maxLength={20}
+                                autoCapitalize="none"
+                                autoCorrect="off"
+                            />
+                        </>
+                    )}
                     <p className="sheet-meta" style={{ marginTop: 8 }}>
-                        Así te ven tus amigos.
+                        Así te ven y te buscan tus amigos.
                     </p>
                 </div>
             </Sheet>
