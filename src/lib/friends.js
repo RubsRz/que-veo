@@ -20,19 +20,24 @@ import { friendshipId, makeCode, normalizeCode, ratingsByItem } from "./social";
 /** Lo que de verdad importa compartir: lo descartado no sale de tu cuenta. */
 const SHARED_DECISIONS = ["liked", "disliked", "watchlist"];
 
-const profileOf = (user, photo) => ({
-    name: user.displayName ?? "Alguien",
+const profileOf = (user, photo, name) => ({
+    name: name ?? user.displayName ?? "Alguien",
     photo: photo ?? user.photoURL ?? null,
 });
 
 /** Mi perfil público y mi código para compartir; se crean la primera vez. */
-async function ensureProfile(user, photo) {
+async function ensureProfile(user, photo, name) {
     const reference = doc(db, "profiles", user.uid);
     const existing = await getDoc(reference);
 
     if (existing.exists() && existing.data().code) {
-        const data = { ...profileOf(user, photo), code: existing.data().code };
-        // El nombre o la foto pueden haber cambiado desde la última vez
+        // Lo que tú hayas puesto manda; de Google solo se toma lo que falte
+        const saved = existing.data();
+        const data = {
+            name: saved.name ?? profileOf(user, photo, name).name,
+            photo: saved.photo ?? profileOf(user, photo, name).photo,
+            code: saved.code,
+        };
         await setDoc(reference, data, { merge: true });
         return data;
     }
@@ -43,7 +48,7 @@ async function ensureProfile(user, photo) {
         const code = makeCode();
         try {
             await setDoc(doc(db, "codes", code), { uid: user.uid });
-            const data = { ...profileOf(user, photo), code };
+            const data = { ...profileOf(user, photo, name), code };
             await setDoc(reference, data, { merge: true });
             return data;
         } catch {
@@ -57,7 +62,7 @@ async function ensureProfile(user, photo) {
  * Tus amigos: solicitudes, calificaciones de cada quien, recomendaciones y
  * listas en conjunto. Sin sesión no hay nada de esto y la pantalla lo dice.
  */
-export function useFriends(user, photo) {
+export function useFriends(user, photo, name) {
     const [profile, setProfile] = useState(null);
     const [blocked, setBlocked] = useState(false); // faltan las reglas de Firestore
     const [links, setLinks] = useState([]); // amistades, aceptadas y pendientes
@@ -75,7 +80,7 @@ export function useFriends(user, photo) {
             setLists([]);
             return;
         }
-        ensureProfile(user, photo)
+        ensureProfile(user, photo, name)
             .then((data) => {
                 setProfile(data);
                 setBlocked(false);
@@ -84,7 +89,7 @@ export function useFriends(user, photo) {
                 setProfile(null);
                 setBlocked(true);
             });
-    }, [enabled, user, photo]);
+    }, [enabled, user, photo, name]);
 
     // Amistades donde aparezco
     useEffect(() => {
@@ -204,6 +209,12 @@ export function useFriends(user, photo) {
         [profile, user],
     );
 
+    /** Para que tus amigos vean tu nombre y tu foto nuevos. */
+    const publishProfile = useCallback(
+        (fields) => (enabled ? setDoc(doc(db, "profiles", user.uid), fields, { merge: true }) : Promise.resolve()),
+        [enabled, user],
+    );
+
     const accept = useCallback((friend) => updateDoc(doc(db, "friendships", friend.id), { status: "accepted" }), []);
     const remove = useCallback((friend) => deleteDoc(doc(db, "friendships", friend.id)), []);
 
@@ -291,6 +302,7 @@ export function useFriends(user, photo) {
         recs,
         lists,
         invite,
+        publishProfile,
         accept,
         remove,
         recommend,

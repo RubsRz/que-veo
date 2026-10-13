@@ -5,6 +5,7 @@ import { auth, cloudEnabled, db } from "./firebase";
 
 const LOCAL_KEY = "que-veo:library:v1";
 const PHOTO_KEY = "que-veo:photo:v1";
+const NAME_KEY = "que-veo:name:v1";
 
 const readLocal = () => {
     try {
@@ -50,8 +51,9 @@ export function useLibrary() {
     // `ready` evita que la baraja se arme antes de tener tus listas: si no,
     // al recargar salen otra vez títulos que ya habías calificado.
     const [libraryReady, setLibraryReady] = useState(!cloudEnabled);
-    // Foto propia: si la pones, gana sobre la de Google
+    // Foto y nombre propios: si los pones, ganan sobre los de Google
     const [photo, setPhoto] = useState(() => localStorage.getItem(PHOTO_KEY));
+    const [name, setName] = useState(() => localStorage.getItem(NAME_KEY));
 
     useEffect(() => {
         if (!cloudEnabled) return;
@@ -86,6 +88,7 @@ export function useLibrary() {
         }
         return onSnapshot(doc(db, "users", user.uid), (snapshot) => {
             setPhoto(snapshot.data()?.photo ?? null);
+            setName(snapshot.data()?.name ?? null);
         });
     }, [user]);
 
@@ -99,6 +102,22 @@ export function useLibrary() {
                 localStorage.setItem(PHOTO_KEY, dataUrl);
             } else {
                 localStorage.removeItem(PHOTO_KEY);
+            }
+        },
+        [user],
+    );
+
+    /** Tu nombre, el que tú quieras, no el de Google. */
+    const saveName = useCallback(
+        async (value) => {
+            const clean = (value ?? "").trim().slice(0, 40) || null;
+            setName(clean);
+            if (cloudEnabled && user) {
+                await setDoc(doc(db, "users", user.uid), { name: clean }, { merge: true });
+            } else if (clean) {
+                localStorage.setItem(NAME_KEY, clean);
+            } else {
+                localStorage.removeItem(NAME_KEY);
             }
         },
         [user],
@@ -157,7 +176,7 @@ export function useLibrary() {
         };
     }, [library]);
 
-    return { user, authReady, libraryReady, cloudEnabled, library, lists, photo, savePhoto, decide, forget, mergeLocalIntoCloud };
+    return { user, authReady, libraryReady, cloudEnabled, library, lists, photo, name, savePhoto, saveName, decide, forget, mergeLocalIntoCloud };
 }
 
 const byRecent = (a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "");

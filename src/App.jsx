@@ -51,7 +51,7 @@ const LIST_NAMES = {
 };
 
 export default function App() {
-    const { user, authReady, libraryReady, library, lists, photo, savePhoto, decide, forget, mergeLocalIntoCloud } =
+    const { user, authReady, libraryReady, library, lists, photo, name, savePhoto, saveName, decide, forget, mergeLocalIntoCloud } =
         useLibrary();
     const [tab, setTab] = useState("explorar");
     const [deckType, setDeckType] = useState("movie"); // el interruptor de Películas / Series
@@ -90,7 +90,8 @@ export default function App() {
     // Páginas seguidas que no trajeron nada nuevo: evita pedir sin fin cuando ya viste todo
     const emptyTries = useRef({ movie: 0, tv: 0 });
 
-    const social = useFriends(user, photo);
+    const social = useFriends(user, photo, name);
+    const displayName = name ?? user?.displayName ?? null;
     // Para el puntito de la pestaña: invitaciones sin contestar y recomendaciones sin abrir
     const novedadesSociales = social.requests.length + social.recs.length;
 
@@ -300,7 +301,9 @@ export default function App() {
         event.target.value = "";
         if (!file) return;
         try {
-            await savePhoto(await toAvatarDataUrl(file));
+            const dataUrl = await toAvatarDataUrl(file);
+            await savePhoto(dataUrl);
+            await social.publishProfile?.({ photo: dataUrl }); // que tus amigos la vean
             setToast("Foto actualizada");
         } catch (error) {
             setToast(error.message ?? "No se pudo usar esa imagen");
@@ -504,15 +507,29 @@ export default function App() {
                                 onClick={() => photoInput.current?.click()}
                                 title="Cambiar foto"
                             >
-                                <Avatar user={user} photo={photo} />
+                                <Avatar user={{ ...user, displayName }} photo={photo} />
                                 <span className="avatar-edit" aria-hidden="true">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                                         <path d="M4 20h4L19 9a2.1 2.1 0 00-3-3L5 17z" />
                                     </svg>
                                 </span>
                             </button>
-                            <div>
-                                <b>{user?.displayName ?? "Sin cuenta"}</b>
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                                <input
+                                    className="name-input"
+                                    defaultValue={displayName ?? ""}
+                                    placeholder={user ? "Tu nombre" : "Sin cuenta"}
+                                    maxLength={40}
+                                    aria-label="Tu nombre"
+                                    onBlur={(event) => {
+                                        const valor = event.target.value.trim();
+                                        if (valor === (displayName ?? "")) return;
+                                        saveName(valor);
+                                        social.publishProfile?.({ name: valor || user?.displayName || "Alguien" });
+                                        setToast("Nombre actualizado");
+                                    }}
+                                    onKeyDown={(event) => event.key === "Enter" && event.target.blur()}
+                                />
                                 <p className="sheet-meta">
                                     {user ? "Tus listas se sincronizan" : cloudEnabled ? "Tus listas viven solo en este navegador" : "Modo local"}
                                 </p>
@@ -521,8 +538,15 @@ export default function App() {
                                         Cambiar foto
                                     </button>
                                     {photo && (
-                                        <button type="button" onClick={() => { savePhoto(null); setToast(user?.photoURL ? "Volvimos a la de Google" : "Foto quitada"); }}>
-                                            {user?.photoURL ? "Usar la de Google" : "Quitar foto"}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                savePhoto(null);
+                                                social.publishProfile?.({ photo: null });
+                                                setToast("Foto quitada");
+                                            }}
+                                        >
+                                            Quitar foto
                                         </button>
                                     )}
                                 </div>

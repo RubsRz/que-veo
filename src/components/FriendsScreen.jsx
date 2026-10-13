@@ -156,12 +156,25 @@ export default function FriendsScreen({
                     <h3 className="section-title">Te recomendaron</h3>
                     <div className="grid-cards">
                         {recs.map((item) => (
-                            <Poster
-                                key={item.id}
-                                item={item}
-                                note={`${item.from?.name ?? "Un amigo"} te la recomendó`}
-                                onClick={() => onOpenItem(item)}
-                            />
+                            <div key={item.id} className="grid-item">
+                                <Poster
+                                    item={item}
+                                    note={`${item.from?.name ?? "Un amigo"} te la recomendó`}
+                                    onClick={() => onOpenItem(item)}
+                                />
+                                <div className="grid-actions">
+                                    <button
+                                        type="button"
+                                        className="tick is-remove"
+                                        aria-label={`Quitar la recomendación de ${item.title}`}
+                                        onClick={() => social.dismissRec(item).then(() => onToast("Recomendación quitada"))}
+                                    >
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                                            <path d="M6 6l12 12M18 6L6 18" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
                         ))}
                     </div>
                 </>
