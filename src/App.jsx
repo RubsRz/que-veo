@@ -20,6 +20,7 @@ import InviteToListSheet from "./components/InviteToListSheet";
 import ListSettingsSheet from "./components/ListSettingsSheet";
 import JoinListSheet from "./components/JoinListSheet";
 import ListPickSheet from "./components/ListPickSheet";
+import PlatformsSheet from "./components/PlatformsSheet";
 import { useLibrary } from "./lib/library";
 import { useFriends } from "./lib/friends";
 import { useDeck } from "./lib/useDeck";
@@ -27,6 +28,7 @@ import { listFromParam, useNavigation } from "./lib/useNavigation";
 import { useListActions } from "./lib/useListActions";
 import { splitRated } from "./lib/ratings";
 import { toAvatarDataUrl } from "./lib/image";
+import { platformCatalog } from "./lib/platforms";
 import { cloudEnabled, loginWithGoogle, logout } from "./lib/firebase";
 import { buildTaste, filterDeck, libraryStats } from "./lib/taste";
 import { discover, getGenres, getProviders } from "./lib/tmdb";
@@ -65,7 +67,7 @@ const TOAST_TEXT = {
 };
 
 export default function App() {
-    const { user, authReady, libraryReady, library, lists, photo, name, localCount, savePhoto, saveName, decide, restore, forget } =
+    const { user, authReady, libraryReady, library, lists, photo, name, localCount, platforms, savePhoto, saveName, savePlatforms, decide, restore, forget } =
         useLibrary();
     const nav = useNavigation();
     const { listView, overlays, closeList } = nav;
@@ -227,6 +229,11 @@ export default function App() {
         if (!isDesktop) return;
         const onKey = (event) => {
             if (event.target.matches("input, textarea, select")) return;
+            if (event.key === "/" && !overlays.length) {
+                event.preventDefault();
+                nav.open("search");
+                return;
+            }
             const card = deck.deck[0];
             if (tab !== "explorar" || !card || overlays.length) return;
             const map = { ArrowRight: "liked", ArrowLeft: "skipped", ArrowUp: "watchlist" };
@@ -299,6 +306,15 @@ export default function App() {
     }
 
     const stats = useMemo(() => libraryStats(library, genres), [library, genres]);
+    const catalog = useMemo(() => platformCatalog(providers), [providers]);
+
+    function togglePlatform(key) {
+        const next = platforms.includes(key) ? platforms.filter((item) => item !== key) : [...platforms, key];
+        savePlatforms(next).catch(() => notify("No se pudo guardar"));
+    }
+
+    /** Elegir tus plataformas, desde Perfil o desde la ficha. */
+    const goToPlatforms = () => nav.open("platforms");
 
     /* ===================== Listas ===================== */
 
@@ -381,6 +397,8 @@ export default function App() {
                         }}
                         friendOpinions={friendOpinions(item)}
                         onShare={social.enabled ? (full) => nav.open("share", { item: full }) : null}
+                        myPlatforms={platforms}
+                        onPickPlatforms={goToPlatforms}
                     />
                 );
             }
@@ -402,7 +420,15 @@ export default function App() {
             case "poster":
                 return <PosterViewer key={id} item={props.item} onClose={close} />;
             case "search":
-                return <SearchSheet key={id} library={library} onOpen={(item) => nav.swap(id, "detail", { item })} onClose={close} />;
+                return (
+                    <SearchSheet
+                        key={id}
+                        library={library}
+                        initialQuery={props.query ?? ""}
+                        onOpen={(item) => nav.swap(id, "detail", { item })}
+                        onClose={close}
+                    />
+                );
             case "tonight":
                 return (
                     <Tonight
@@ -535,6 +561,8 @@ export default function App() {
                         onClose={close}
                     />
                 );
+            case "platforms":
+                return <PlatformsSheet key={id} catalog={catalog} platforms={platforms} onToggle={togglePlatform} onClose={close} />;
             case "confirm":
                 return <ConfirmSheet key={id} {...props} onClose={close} />;
             case "menu": {
@@ -654,6 +682,15 @@ export default function App() {
                     Qué<span>Veo</span>
                 </p>
                 <div className="topbar-actions">
+                    {/* En celular la lupa de Explorar va aquí; en escritorio está en la barra lateral */}
+                    {tab === "explorar" && (
+                        <button type="button" className="icon-btn explore-search" onClick={() => nav.open("search")} aria-label="Buscar un título">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true" style={{ width: 17, height: 17 }}>
+                                <circle cx="11" cy="11" r="6.5" />
+                                <path d="M16 16l4.5 4.5" />
+                            </svg>
+                        </button>
+                    )}
                     <button type="button" className="icon-btn" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} aria-label="Cambiar tema">
                         {theme === "dark" ? "☀" : "☾"}
                     </button>
@@ -677,6 +714,8 @@ export default function App() {
                     onForget={(id) => library[id] && forgetWithUndo(library[id])}
                     friendOpinions={friendOpinions}
                     onShare={social.enabled ? (item) => nav.open("share", { item }) : null}
+                    myPlatforms={platforms}
+                    onPickPlatforms={goToPlatforms}
                 />
             )}
 
@@ -725,7 +764,9 @@ export default function App() {
                     displayName={displayName}
                     photo={photo}
                     stats={stats}
-                    localCount={localCount}
+                    platformCatalog={catalog}
+                    platforms={platforms}
+                    onEditPlatforms={goToPlatforms}
                     onEdit={() => nav.open("profile")}
                     onLogin={requestLogin}
                     onLogout={logout}
@@ -734,6 +775,14 @@ export default function App() {
             <input ref={photoInput} type="file" accept="image/*" hidden onChange={handlePhoto} />
 
             <nav className="tabbar">
+                {/* En escritorio el buscador va hasta arriba de la barra lateral */}
+                <button type="button" className="tab-search" onClick={() => nav.open("search")}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+                        <circle cx="11" cy="11" r="6.5" />
+                        <path d="M16 16l4.5 4.5" />
+                    </svg>
+                    Buscar
+                </button>
                 {TABS.map((item) => (
                     <button
                         key={item.id}

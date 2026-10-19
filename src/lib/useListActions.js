@@ -155,6 +155,7 @@ export function useListActions({ user, library, social, nav, notify, decide, res
             invite: () => nav.open("invite", { listId: list.id }),
             settings: () => nav.open("listSettings", { listId: list.id }),
             pick: () => nav.open("pick", { listId: list.id }),
+            searchCatalog: (query) => nav.open("search", { query }),
         };
     }
 

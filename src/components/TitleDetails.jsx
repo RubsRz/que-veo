@@ -3,13 +3,24 @@ import { getDetails } from "../lib/tmdb";
 import Avatar from "./Avatar";
 import Stars from "./Stars";
 import { ratingInfo } from "../lib/ratings";
+import { accessLabel, groupProviders } from "../lib/platforms";
 
-const DECISION_LABEL = {
-    liked: "Ya la viste",
-    disliked: "Ya la viste",
-    watchlist: "Quieres verla",
-    skipped: "No la has visto",
+/** Tu decisión actual, como etiqueta de color arriba de la ficha. */
+const STATUS = {
+    liked: { label: "Ya la viste", tone: "seen" },
+    disliked: { label: "Ya la viste", tone: "seen" },
+    watchlist: { label: "Quieres verla", tone: "watch" },
+    skipped: { label: "No la has visto", tone: "skip" },
 };
+
+// Cuántas plataformas se ven antes de "Ver más": las tuyas siempre se ven
+const PROVIDER_LIMIT = 4;
+
+const CHECK = (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ width: 15, height: 15 }}>
+        <path d="M5 12.5l4.5 4.5L19 7" />
+    </svg>
+);
 
 /** Cómo se lee la opinión de un amigo: manda la calificación. */
 const friendLabel = (opinion) => {
@@ -31,13 +42,17 @@ export default function TitleDetails({
     friendOpinions = [],
     onShare = null,
     hideTitle = false,
+    myPlatforms = [],
+    onPickPlatforms = null,
 }) {
     const [details, setDetails] = useState(null);
     const [stars, setStars] = useState(entry?.stars ?? 0);
+    const [allProviders, setAllProviders] = useState(false);
 
     useEffect(() => {
         setDetails(null);
         setStars(entry?.stars ?? 0);
+        setAllProviders(false);
         let alive = true;
         getDetails(item.type, item.tmdbId)
             .then((data) => alive && setDetails(data))
@@ -48,8 +63,11 @@ export default function TitleDetails({
     }, [item.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const full = details ?? item;
-    const stream = (full.providers ?? []).filter((provider) => provider.mode === "flatrate");
-    const paid = (full.providers ?? []).filter((provider) => provider.mode !== "flatrate");
+    const groups = groupProviders(full.providers ?? [], myPlatforms);
+    const yours = groups.filter((group) => group.mine && group.included);
+    const limit = Math.max(PROVIDER_LIMIT, groups.filter((group) => group.mine).length);
+    const shown = allProviders ? groups : groups.slice(0, limit);
+    const status = entry ? STATUS[entry.decision] : null;
 
     return (
         <>
@@ -70,9 +88,10 @@ export default function TitleDetails({
                             .join(" · ")}
                     </p>
                     {full.director && <p className="sheet-meta">Dirige: {full.director}</p>}
-                    {entry && (
-                        <p className="sheet-meta">
-                            En tus listas: <b>{DECISION_LABEL[entry.decision]}</b>
+                    {status && (
+                        <p className={`status-pill is-${status.tone}`}>
+                            {CHECK}
+                            {status.label}
                             {entry.stars ? ` · ${entry.stars}★` : ""}
                         </p>
                     )}
@@ -87,23 +106,37 @@ export default function TitleDetails({
                 </p>
             )}
 
-            {(stream.length > 0 || paid.length > 0) && (
+            {groups.length > 0 && (
                 <>
                     <h3 className="section-title">Dónde verla en México</h3>
+                    {yours.length > 0 && (
+                        <p className="yours-line">
+                            {CHECK}
+                            {yours.length === 1
+                                ? `Está en ${yours[0].name}, que ya tienes`
+                                : `Está en ${yours.length} plataformas que ya tienes`}
+                        </p>
+                    )}
                     <div className="providers">
-                        {stream.map((provider) => (
-                            <span key={`${provider.id}-${provider.mode}`} className="provider">
-                                {provider.logo && <img src={provider.logo} alt="" />}
-                                {provider.name}
+                        {shown.map((group) => (
+                            <span key={group.key} className={`provider ${group.mine ? "is-mine" : ""}`}>
+                                {group.logo && <img src={group.logo} alt="" />}
+                                {group.name}
+                                {accessLabel(group) && <small>{accessLabel(group)}</small>}
+                                {group.mine && <span className="visually-hidden"> (la tienes)</span>}
                             </span>
                         ))}
-                        {paid.slice(0, 4).map((provider) => (
-                            <span key={`${provider.id}-${provider.mode}`} className="provider">
-                                {provider.logo && <img src={provider.logo} alt="" />}
-                                {provider.name} <small>{provider.mode === "rent" ? "renta" : "compra"}</small>
-                            </span>
-                        ))}
+                        {groups.length > shown.length && (
+                            <button type="button" className="provider is-more" onClick={() => setAllProviders(true)}>
+                                +{groups.length - shown.length} más
+                            </button>
+                        )}
                     </div>
+                    {myPlatforms.length === 0 && onPickPlatforms && (
+                        <button type="button" className="link-btn is-inline" onClick={onPickPlatforms}>
+                            Marca las plataformas que tienes para verlas resaltadas
+                        </button>
+                    )}
                 </>
             )}
 
@@ -145,12 +178,25 @@ export default function TitleDetails({
                     )}
 
                     <div className="sheet-actions">
-                        <button type="button" className="btn btn-ghost" onClick={() => onDecide(full, "watchlist")}>
-                            Quiero verla
-                        </button>
-                        <button type="button" className="btn btn-ghost" onClick={() => onDecide(full, "skipped")}>
-                            No la he visto
-                        </button>
+                        {[
+                            { decision: "watchlist", label: "Quiero verla" },
+                            { decision: "skipped", label: "No la he visto" },
+                        ].map((option) => {
+                            const current = entry?.decision === option.decision;
+                            return (
+                                <button
+                                    key={option.decision}
+                                    type="button"
+                                    className={`btn btn-ghost ${current ? "is-current" : ""}`}
+                                    aria-pressed={current}
+                                    // Ya está ahí: tocarla otra vez no hace nada (para quitarla está "Quitar de mis listas")
+                                    onClick={() => !current && onDecide(full, option.decision)}
+                                >
+                                    {current && CHECK}
+                                    {option.label}
+                                </button>
+                            );
+                        })}
                         {onShare && (
                             <button type="button" className="btn btn-ghost btn-wide" onClick={() => onShare(full)}>
                                 Compartir con un amigo

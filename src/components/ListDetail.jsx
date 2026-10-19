@@ -4,6 +4,7 @@ import Poster from "./Poster";
 import { groupSharedItems, votesOf } from "../lib/social";
 import { lookOf } from "../lib/listLook";
 import { useLongPress } from "../lib/useLongPress";
+import { matchesQuery } from "../lib/text";
 
 /**
  * Orden y dirección van juntos en un solo selector: "Más antiguas" se entiende
@@ -59,6 +60,50 @@ function Tile({ item, onOpen, onMenu, children, faces = null }) {
     );
 }
 
+/** El buscador de la lista: filtra mientras escribes, sin acentos ni mayúsculas. */
+function ListSearch({ value, onChange, total, found, name }) {
+    return (
+        <div className="list-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" aria-hidden="true">
+                <circle cx="11" cy="11" r="6.5" />
+                <path d="M16 16l4.5 4.5" />
+            </svg>
+            <input
+                type="search"
+                value={value}
+                onChange={(event) => onChange(event.target.value)}
+                onKeyDown={(event) => event.key === "Escape" && value && (event.stopPropagation(), onChange(""))}
+                placeholder={`Buscar en ${name}`}
+                aria-label={`Buscar en ${name}`}
+                enterKeyHint="search"
+            />
+            {value && (
+                <>
+                    <span className="list-search-count" aria-live="polite">
+                        {found} de {total}
+                    </span>
+                    <button type="button" className="list-search-clear" onClick={() => onChange("")} aria-label="Borrar búsqueda">
+                        <Icon path="M6 6l12 12M18 6L6 18" size={14} />
+                    </button>
+                </>
+            )}
+        </div>
+    );
+}
+
+/** Cuando la búsqueda no encuentra nada en la lista: ofrece buscar en todo el catálogo. */
+function NoMatches({ query, onCatalog }) {
+    return (
+        <div className="empty">
+            <b>Nada con “{query.trim()}” en esta lista</b>
+            <p>Revisa cómo está escrito, o búscala en todo el catálogo.</p>
+            <button type="button" className="btn btn-ghost" onClick={() => onCatalog(query.trim())}>
+                Buscar “{query.trim()}” en el catálogo
+            </button>
+        </div>
+    );
+}
+
 /** Una sección que se puede plegar: "Ya vistas", "Quitadas". */
 function Fold({ title, count, open, onToggle, children, hint = null }) {
     return (
@@ -96,6 +141,9 @@ export default function ListDetail({ list, myUid, library, libraries, people, ac
     const [starFilter, setStarFilter] = useState(null); // puntaje exacto; null = todos
     const [showWatched, setShowWatched] = useState(false);
     const [showRemoved, setShowRemoved] = useState(false);
+    const [query, setQuery] = useState("");
+    const searching = query.trim().length > 0;
+    const found = useMemo(() => list.items.filter((item) => matchesQuery(item, query)), [list.items, query]);
 
     const members = useMemo(() => (shared ? (list.members ?? []) : []), [shared, list.members]);
     const context = useMemo(() => ({ myUid, mine: library, libraries }), [myUid, library, libraries]);
@@ -116,8 +164,8 @@ export default function ListDetail({ list, myUid, library, libraries, people, ac
     }, [shared, list.id, list.items]);
 
     const groups = useMemo(
-        () => (shared ? groupSharedItems(list.items, members, context, { scope }) : null),
-        [shared, list.items, members, context, scope],
+        () => (shared ? groupSharedItems(found, members, context, { scope }) : null),
+        [shared, found, members, context, scope],
     );
 
     const header = shared ? <SharedHeader list={list} groups={groups} people={people} actions={actions} /> : <MineHeader list={list} actions={actions} />;
@@ -136,10 +184,13 @@ export default function ListDetail({ list, myUid, library, libraries, people, ac
     );
 
     if (!shared) {
-        const visible = arrange(starFilter === null ? list.items : list.items.filter((item) => (item.stars ?? 0) === starFilter));
+        const visible = arrange(starFilter === null ? found : found.filter((item) => (item.stars ?? 0) === starFilter));
         return (
             <main className="screen is-detail">
                 {header}
+                {list.items.length > 1 && (
+                    <ListSearch value={query} onChange={setQuery} total={list.items.length} found={found.length} name={list.name.toLowerCase()} />
+                )}
                 {starOptions.length > 1 && (
                     <div className="chips chips-scroll">
                         <button type="button" className={`chip ${starFilter === null ? "is-on" : ""}`} aria-pressed={starFilter === null} onClick={() => setStarFilter(null)}>
@@ -160,7 +211,9 @@ export default function ListDetail({ list, myUid, library, libraries, people, ac
                 )}
                 {list.items.length > 1 && <div className="list-controls">{sortSelect}</div>}
 
-                {visible.length === 0 ? (
+                {visible.length === 0 && searching ? (
+                    <NoMatches query={query} onCatalog={actions.searchCatalog} />
+                ) : visible.length === 0 ? (
                     <div className="empty">
                         <b>Nada aquí todavía</b>
                         <p>Califica títulos en Explorar y van cayendo solos.</p>
@@ -178,7 +231,10 @@ export default function ListDetail({ list, myUid, library, libraries, people, ac
 
     const { pending, watched, removed } = groups;
     const total = pending.length + watched.length;
-    const watchedOpen = showWatched || (pending.length === 0 && watched.length > 0);
+    const activeCount = list.items.filter((item) => !item.removedAt).length;
+    // Buscando, lo que encontró no se queda escondido en una sección plegada
+    const watchedOpen = showWatched || searching || (pending.length === 0 && watched.length > 0);
+    const removedOpen = showRemoved || searching;
 
     const sharedTile = (item) => {
         const mineSeen = item.seen.includes(myUid);
@@ -232,7 +288,11 @@ export default function ListDetail({ list, myUid, library, libraries, people, ac
         <main className="screen is-detail">
             {header}
 
-            {pending.length > 0 && (
+            {activeCount > 1 && (
+                <ListSearch value={query} onChange={setQuery} total={activeCount} found={total} name={list.name} />
+            )}
+
+            {pending.length > 0 && !searching && (
                 <button type="button" className="tonight-btn is-compact" onClick={() => actions.pick()}>
                     <span aria-hidden="true">🎲</span>
                     <span>
@@ -256,7 +316,9 @@ export default function ListDetail({ list, myUid, library, libraries, people, ac
                 </div>
             )}
 
-            {total === 0 ? (
+            {total === 0 && searching ? (
+                <NoMatches query={query} onCatalog={actions.searchCatalog} />
+            ) : total === 0 ? (
                 <div className="empty">
                     <b>Nada aquí todavía</b>
                     <p>Abre la ficha de una película y usa “Compartir” para echarla a esta lista.</p>
@@ -266,7 +328,9 @@ export default function ListDetail({ list, myUid, library, libraries, people, ac
                     <h3 className="section-title">
                         {scope === "group" ? "Por ver" : "Me faltan"} <small className="count">{pending.length}</small>
                     </h3>
-                    {pending.length === 0 ? (
+                    {pending.length === 0 && searching ? (
+                        <p className="sheet-meta">Ninguna por ver con ese nombre.</p>
+                    ) : pending.length === 0 ? (
                         <p className="notice">
                             {scope === "group" ? "Ya vieron todo lo de esta lista 🎉" : "Ya viste todo lo de esta lista 🎉"} Agreguen más
                             desde la ficha de cualquier título.
@@ -292,8 +356,8 @@ export default function ListDetail({ list, myUid, library, libraries, people, ac
                 <Fold
                     title="Quitadas"
                     count={removed.length}
-                    open={showRemoved}
-                    onToggle={() => setShowRemoved(!showRemoved)}
+                    open={removedOpen}
+                    onToggle={() => setShowRemoved(!removedOpen)}
                     hint="Se pueden regresar durante 30 días."
                 >
                     <ul className="removed-list">

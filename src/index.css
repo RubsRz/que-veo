@@ -11,6 +11,7 @@
     --watch: #f5b942;
     --nope: #8b8b9e;
     --bad: #ef4444;
+    --mine: #3b82f6; /* tus plataformas */
     --shadow: 0 20px 50px -24px rgba(0, 0, 0, 0.9);
     --radius: 18px;
     --radius-sm: 12px;
@@ -29,6 +30,7 @@
     --like: #16a34a;
     --watch: #d98b06;
     --nope: #74748a;
+    --mine: #2563eb;
     --shadow: 0 18px 40px -26px rgba(10, 10, 20, 0.5);
 }
 
@@ -729,27 +731,6 @@ h3 {
     background: var(--border);
 }
 
-.fab svg {
-    width: 23px;
-    height: 23px;
-}
-
-.fab {
-    position: fixed;
-    right: max(16px, calc(50% - 244px));
-    bottom: calc(var(--tabbar) + 16px);
-    z-index: 25;
-    display: grid;
-    place-items: center;
-    width: 54px;
-    height: 54px;
-    border-radius: 50%;
-    background: var(--accent);
-    color: #fff;
-    font-size: 21px;
-    box-shadow: var(--shadow);
-}
-
 .search-screen {
     position: fixed;
     inset: 0;
@@ -940,8 +921,10 @@ h3 {
     background: var(--surface-2);
 }
 
+/* Ancho completo, esté o no dentro de una cuadrícula */
 .btn-wide {
     grid-column: 1 / -1;
+    width: 100%;
 }
 
 /* ===================== Perfil ===================== */
@@ -2605,6 +2588,251 @@ h3 {
     padding: 4px 0;
 }
 
+/* ===================== Búsqueda y plataformas ===================== */
+/* Cuántas llevas, en un solo renglón a la derecha de Películas / Series */
+.deck-count {
+    margin-left: auto;
+    padding-bottom: 0;
+    white-space: nowrap;
+}
+
+/* La lupa de Explorar, con el color de la app */
+.icon-btn.explore-search {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+/* Películas / Series: lo activo en azul */
+.deck-head .segmented button.is-active {
+    background: var(--mine);
+    color: #fff;
+}
+
+/* El botón de buscar de la barra lateral solo existe en escritorio */
+.tabbar .tab-search {
+    display: none;
+}
+
+/* La lupa flotante de Listas */
+.fab svg {
+    width: 23px;
+    height: 23px;
+}
+
+.fab {
+    position: fixed;
+    right: max(16px, calc(50% - 244px));
+    bottom: calc(var(--tabbar) + 16px);
+    z-index: 25;
+    display: grid;
+    place-items: center;
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    box-shadow: var(--shadow);
+}
+
+/* Campo con lupa y botón para borrar: el general y el de cada lista */
+.search-field,
+.list-search {
+    position: relative;
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 6px 0 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+}
+
+.search-field:focus-within,
+.list-search:focus-within {
+    border-color: var(--accent);
+}
+
+.search-field > svg,
+.list-search > svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    color: var(--muted);
+}
+
+.search-bar .search-field input,
+.list-search input {
+    flex: 1;
+    min-width: 0;
+    height: 42px;
+    padding: 0;
+    border: 0;
+    background: none;
+    /* 16px exactos: con menos, Safari hace zoom al enfocar y ya no regresa */
+    font-size: 16px;
+}
+
+.search-field input:focus,
+.list-search input:focus {
+    outline: none;
+}
+
+.search-field input::-webkit-search-cancel-button,
+.list-search input::-webkit-search-cancel-button {
+    display: none;
+}
+
+.list-search {
+    margin: 2px 0 10px;
+}
+
+.list-search-count {
+    flex-shrink: 0;
+    color: var(--muted);
+    font-size: 0.76rem;
+    font-weight: 600;
+}
+
+.list-search-clear {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    color: var(--muted);
+}
+
+.list-search-clear:hover {
+    background: var(--surface-2);
+    color: var(--text);
+}
+
+.list-search-clear svg {
+    width: 14px;
+    height: 14px;
+}
+
+.search-kinds {
+    align-self: flex-start;
+    margin: 12px 16px 0;
+}
+
+.search-kinds button {
+    min-height: 32px;
+}
+
+/* Tu decisión, arriba de la ficha */
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 4px 10px;
+    border: 1px solid currentColor;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.status-pill.is-seen {
+    color: var(--like);
+    background: color-mix(in srgb, var(--like) 12%, transparent);
+}
+
+.status-pill.is-watch {
+    color: var(--watch);
+    background: color-mix(in srgb, var(--watch) 12%, transparent);
+}
+
+.status-pill.is-skip {
+    color: var(--muted);
+}
+
+/* El botón de tu decisión actual, marcado */
+.btn.is-current {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
+    cursor: default;
+}
+
+/* Tus plataformas: borde azul y primero */
+.provider.is-mine {
+    border-color: var(--mine);
+    box-shadow: inset 0 0 0 1px var(--mine);
+}
+
+.provider.is-more {
+    border-style: dashed;
+    color: var(--muted);
+}
+
+.provider.is-more:hover {
+    color: var(--text);
+}
+
+.yours-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: -2px;
+    color: var(--mine);
+    font-size: 0.84rem;
+    font-weight: 700;
+}
+
+.link-btn.is-inline {
+    margin: 8px 0 0;
+    padding: 4px 0;
+    font-size: 0.82rem;
+    text-align: left;
+}
+
+.platform-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.platform-picker .provider {
+    min-height: 40px;
+    background: var(--surface);
+    color: var(--text);
+}
+
+/* En Perfil, solo los íconos de tus plataformas */
+.platform-icons {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.platform-icons img,
+.platform-icon-text {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+}
+
+.platform-icon-text {
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.platform-picker .provider.is-mine {
+    background: color-mix(in srgb, var(--mine) 12%, var(--surface));
+}
+
 @media (prefers-reduced-motion: reduce) {
     * {
         animation: none !important;
@@ -2652,6 +2880,7 @@ h3 {
         margin-top: auto;
     }
 
+
     /* Las tabs pasan de barra inferior a menú vertical */
     .tabbar {
         position: static;
@@ -2692,6 +2921,39 @@ h3 {
     .tabbar button svg {
         width: 20px;
         height: 20px;
+    }
+
+    /* Dentro de la app, no pegada a la orilla de la ventana */
+    .fab {
+        right: max(24px, calc((100vw - 1240px) / 2 + 24px));
+        bottom: 24px;
+    }
+
+    .tabbar .tab-search {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 8px;
+        padding: 10px 14px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--surface);
+        color: var(--muted);
+        font-size: 0.95rem;
+        font-weight: 600;
+    }
+
+    .tabbar .tab-search:hover {
+        color: var(--text);
+    }
+
+    .tabbar .tab-search svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    .explore-search {
+        display: none;
     }
 
     .screen {
@@ -2749,11 +3011,6 @@ h3 {
     }
 
     /* En escritorio la lupa va en la barra lateral, no flotando */
-    .fab {
-        right: 24px;
-        bottom: 24px;
-    }
-
     .grid-cards {
         grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
     }

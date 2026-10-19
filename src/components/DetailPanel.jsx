@@ -1,7 +1,7 @@
 import TitleDetails from "./TitleDetails";
 
 /** La ficha en escritorio: panel fijo a la derecha, siempre visible. */
-export default function DetailPanel({ item, entry, onDecide, onForget, friendOpinions = [], onShare = null }) {
+export default function DetailPanel({ item, entry, onDecide, onForget, friendOpinions = [], onShare = null, myPlatforms = [], onPickPlatforms = null }) {
     if (!item) {
         return (
             <aside className="detail-panel">
@@ -15,7 +15,16 @@ export default function DetailPanel({ item, entry, onDecide, onForget, friendOpi
 
     return (
         <aside className="detail-panel">
-            <TitleDetails item={item} entry={entry} onDecide={onDecide} onForget={onForget} friendOpinions={friendOpinions} onShare={onShare} />
+            <TitleDetails
+                item={item}
+                entry={entry}
+                onDecide={onDecide}
+                onForget={onForget}
+                friendOpinions={friendOpinions}
+                onShare={onShare}
+                myPlatforms={myPlatforms}
+                onPickPlatforms={onPickPlatforms}
+            />
         </aside>
     );
 }

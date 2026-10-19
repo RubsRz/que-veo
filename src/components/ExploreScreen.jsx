@@ -20,6 +20,8 @@ export default function ExploreScreen({
     onForget,
     friendOpinions,
     onShare,
+    myPlatforms,
+    onPickPlatforms,
 }) {
     const { deck: cards, loading, error, retry, searchMore } = deck;
     const current = cards[0];
@@ -35,8 +37,8 @@ export default function ExploreScreen({
                         Series
                     </button>
                 </div>
-                <span className="action-hint" style={{ marginLeft: "auto", paddingBottom: 0 }}>
-                    {taste.ready ? `A tu gusto · ${taste.rated} calificadas` : `Calibrando · ${taste.rated}/5`}
+                <span className="action-hint deck-count">
+                    {taste.ready ? `${taste.rated} calificadas` : `Calibrando · ${taste.rated}/5`}
                 </span>
             </div>
 
@@ -102,6 +104,8 @@ export default function ExploreScreen({
                         onForget={onForget}
                         friendOpinions={friendOpinions(current)}
                         onShare={onShare}
+                        myPlatforms={myPlatforms}
+                        onPickPlatforms={onPickPlatforms}
                     />
                 )}
             </div>

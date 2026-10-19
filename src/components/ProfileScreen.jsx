@@ -1,8 +1,10 @@
 import Avatar from "./Avatar";
 import { hasApiKey } from "../lib/tmdb";
 
-/** Tu perfil: la cuenta, tus números y tus géneros. */
-export default function ProfileScreen({ user, cloudEnabled, displayName, photo, stats, localCount, onEdit, onLogin, onLogout }) {
+/** Tu perfil: la cuenta, tus plataformas, tus números y tus géneros. */
+export default function ProfileScreen({ user, cloudEnabled, displayName, photo, stats, platformCatalog = [], platforms = [], onEditPlatforms, onEdit, onLogin, onLogout }) {
+    // Solo los íconos de las tuyas; para elegir se abre la hoja con todas
+    const mine = platformCatalog.filter((platform) => platforms.includes(platform.key));
     return (
         <main className="screen">
             <div className="profile-card">
@@ -36,13 +38,34 @@ export default function ProfileScreen({ user, cloudEnabled, displayName, photo, 
                         sincronizar tus listas entre dispositivos.
                     </p>
                 )}
-                {user && localCount > 0 && (
-                    <p className="notice" style={{ marginTop: 12 }}>
-                        En este navegador hay <b>{localCount}</b> {localCount === 1 ? "título" : "títulos"} que calificaste sin
-                        cuenta. No se mezclan con tu cuenta; si cierras sesión los vuelves a ver aquí.
-                    </p>
-                )}
             </div>
+
+            {platformCatalog.length > 0 && (
+                <section>
+                    <div className="section-head">
+                        <h2 className="section-title">Tus plataformas</h2>
+                        <button type="button" className="btn btn-ghost btn-small" onClick={onEditPlatforms}>
+                            {mine.length ? "Editar" : "Elegir"}
+                        </button>
+                    </div>
+                    {mine.length === 0 ? (
+                        <p className="notice">Marca las que tienes y saldrán resaltadas en la ficha de cada título.</p>
+                    ) : (
+                        <button type="button" className="platform-icons" onClick={onEditPlatforms} aria-label={`Tus plataformas: ${mine.map((platform) => platform.name).join(", ")}`}>
+                            {mine.slice(0, 5).map((platform) =>
+                                platform.logo ? (
+                                    <img key={platform.key} src={platform.logo} alt="" title={platform.name} />
+                                ) : (
+                                    <span key={platform.key} className="platform-icon-text" title={platform.name}>
+                                        {platform.name.slice(0, 2)}
+                                    </span>
+                                ),
+                            )}
+                            {mine.length > 5 && <span className="platform-icon-text">+{mine.length - 5}</span>}
+                        </button>
+                    )}
+                </section>
+            )}
 
             <h2 className="section-title">Tus números</h2>
             <dl className="stats-grid">

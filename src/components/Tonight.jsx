@@ -23,6 +23,7 @@ const TIMES = [
 const SOURCES = [
     { id: "watchlist", label: "Mis pendientes" },
     { id: "liked", label: "Las que me gustaron" },
+    { id: "skipped", label: "Las que no he visto" },
     { id: "friends", label: "Lo que les gustó a mis amigos" },
     { id: "fresh", label: "Nuevas (del catálogo)" },
 ];
@@ -31,8 +32,8 @@ const SOURCES = [
 export default function Tonight({ lists, providers, onClose, onOpen, onFresh, friendPicks = [] }) {
     const [maxMinutes, setMaxMinutes] = useState(0);
     const [providerId, setProviderId] = useState(0);
-    // De inicio, solo tus pendientes: lo demás lo prendes tú
-    const [sources, setSources] = useState({ watchlist: true, liked: false, friends: false, fresh: false });
+    // De inicio, tus pendientes y las que pasaste de largo: lo demás lo prendes tú
+    const [sources, setSources] = useState({ watchlist: true, liked: false, skipped: true, friends: false, fresh: false });
     const [pick, setPick] = useState(null);
     const [searched, setSearched] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -54,6 +55,7 @@ export default function Tonight({ lists, providers, onClose, onOpen, onFresh, fr
         const pool = [
             ...(sources.watchlist ? lists.watchlist : []),
             ...(sources.liked ? splitRated(lists).liked : []),
+            ...(sources.skipped ? lists.skipped : []),
             ...(sources.friends ? friendPicks : []),
             ...(sources.fresh ? await onFresh() : []),
         ];
@@ -65,6 +67,7 @@ export default function Tonight({ lists, providers, onClose, onOpen, onFresh, fr
     const count = [
         sources.watchlist && lists.watchlist.length,
         sources.liked && splitRated(lists).liked.length,
+        sources.skipped && lists.skipped.length,
         sources.friends && friendPicks.length,
     ].reduce((sum, value) => sum + (value || 0), 0);
 
@@ -72,7 +75,13 @@ export default function Tonight({ lists, providers, onClose, onOpen, onFresh, fr
         <Sheet
             onClose={onClose}
             title="¿Qué vemos hoy?"
-            subtitle={`${count} títulos tuyos${sources.fresh ? " más novedades del catálogo" : ""}`}
+            subtitle={
+                count
+                    ? `Entre ${count} ${count === 1 ? "título" : "títulos"}${sources.fresh ? " y novedades del catálogo" : ""}`
+                    : sources.fresh
+                      ? "Entre novedades del catálogo"
+                      : "Elige de dónde la saco"
+            }
             footer={
                 <button type="button" className="btn btn-primary btn-wide" onClick={roll} disabled={loading}>
                     {loading ? (

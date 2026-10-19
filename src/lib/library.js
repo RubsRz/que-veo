@@ -6,6 +6,15 @@ import { auth, cloudEnabled, db } from "./firebase";
 const LOCAL_KEY = "que-veo:library:v1";
 const PHOTO_KEY = "que-veo:photo:v1";
 const NAME_KEY = "que-veo:name:v1";
+const PLATFORMS_KEY = "que-veo:platforms:v1";
+
+const readPlatforms = () => {
+    try {
+        return JSON.parse(localStorage.getItem(PLATFORMS_KEY)) ?? [];
+    } catch {
+        return [];
+    }
+};
 
 const readLocal = () => {
     try {
@@ -54,6 +63,8 @@ export function useLibrary() {
     // Foto y nombre propios: si los pones, ganan sobre los de Google
     const [photo, setPhoto] = useState(() => localStorage.getItem(PHOTO_KEY));
     const [name, setName] = useState(() => localStorage.getItem(NAME_KEY));
+    // Las plataformas que tienes (llaves de lib/platforms), para resaltarlas en la ficha
+    const [platforms, setPlatforms] = useState(readPlatforms);
     // Lo que calificaste sin cuenta en este navegador. No se sube solo: si tu cuenta
     // ya tenía calificaciones, mezclarlas pisaría unas con otras. Solo se avisa.
     const [localCount, setLocalCount] = useState(() => Object.keys(readLocal()).length);
@@ -90,11 +101,13 @@ export function useLibrary() {
             // Al cerrar sesión se regresa a lo de este navegador, nombre incluido
             setPhoto(localStorage.getItem(PHOTO_KEY));
             setName(localStorage.getItem(NAME_KEY));
+            setPlatforms(readPlatforms());
             return;
         }
         return onSnapshot(doc(db, "users", user.uid), (snapshot) => {
             setPhoto(snapshot.data()?.photo ?? null);
             setName(snapshot.data()?.name ?? null);
+            setPlatforms(snapshot.data()?.platforms ?? []);
         });
     }, [user]);
 
@@ -124,6 +137,19 @@ export function useLibrary() {
                 localStorage.setItem(NAME_KEY, clean);
             } else {
                 localStorage.removeItem(NAME_KEY);
+            }
+        },
+        [user],
+    );
+
+    /** Las plataformas que tienes. */
+    const savePlatforms = useCallback(
+        async (keys) => {
+            setPlatforms(keys);
+            if (cloudEnabled && user) {
+                await setDoc(doc(db, "users", user.uid), { platforms: keys }, { merge: true });
+            } else {
+                localStorage.setItem(PLATFORMS_KEY, JSON.stringify(keys));
             }
         },
         [user],
@@ -176,7 +202,7 @@ export function useLibrary() {
         };
     }, [library]);
 
-    return { user, authReady, libraryReady, cloudEnabled, library, lists, photo, name, localCount, savePhoto, saveName, decide, restore, forget };
+    return { user, authReady, libraryReady, cloudEnabled, library, lists, photo, name, localCount, platforms, savePhoto, saveName, savePlatforms, decide, restore, forget };
 }
 
 const byRecent = (a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "");

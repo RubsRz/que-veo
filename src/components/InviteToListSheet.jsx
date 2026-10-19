@@ -74,7 +74,7 @@ export default function InviteToListSheet({ list, friends, social, onToast, onGo
 
             <h3 className="section-title">Con un link</h3>
             <p className="sheet-meta">Quien lo abra entra directo a la lista, aunque no sea tu amigo.</p>
-            <button type="button" className="btn btn-ghost btn-wide" style={{ marginTop: 10, width: "100%" }} disabled={busy === "link"} onClick={compartirLink}>
+            <button type="button" className="btn btn-ghost btn-wide" style={{ marginTop: 10 }} disabled={busy === "link"} onClick={compartirLink}>
                 {busy === "link" ? "Creando link…" : "Compartir link de invitación"}
             </button>
         </Sheet>
