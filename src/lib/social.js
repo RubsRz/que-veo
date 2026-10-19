@@ -199,8 +199,75 @@ const average = (values) => {
     return Math.round((clean.reduce((sum, value) => sum + value, 0) / clean.length) * 10) / 10;
 };
 
-/** Las que ya vieron todos los de una lista en conjunto quedan hasta abajo. */
-export const sortSharedItems = (items = []) =>
-    [...items].sort(
-        (a, b) => Number(Boolean(a.watched)) - Number(Boolean(b.watched)) || (b.addedAt ?? "").localeCompare(a.addedAt ?? ""),
-    );
+/* ===================== Listas en conjunto ===================== */
+
+/** Lo único que viaja a una lista en conjunto: nada de tus estrellas ni tus decisiones. */
+const SHARED_FIELDS = ["id", "tmdbId", "type", "title", "year", "poster", "rating", "runtime", "genreIds", "providerIds"];
+
+export const toSharedItem = (item) =>
+    Object.fromEntries(SHARED_FIELDS.filter((field) => item[field] !== undefined).map((field) => [field, item[field]]));
+
+/** Lo quitado se puede regresar durante este tiempo; después ya ni se muestra. */
+export const REMOVED_DAYS = 30;
+
+const VIEWED = ["liked", "disliked"];
+
+/**
+ * Quiénes de la lista ya la vieron. Cuenta la palomita (`watchedBy`) y también
+ * haberla calificado en tu biblioteca o en la de un amigo, para que no tengas que
+ * marcarla dos veces. Las listas viejas tenían un `watched` para todos: se respeta.
+ */
+export function seenBy(item, members = [], { myUid = null, mine = {}, libraries = {} } = {}) {
+    if (item.watched === true && !item.watchedBy) return [...members];
+    return members.filter((uid) => {
+        if (item.watchedBy?.[uid]) return true;
+        const entry = uid === myUid ? mine[item.id] : libraries[uid]?.[item.id];
+        return VIEWED.includes(entry?.decision);
+    });
+}
+
+export const votesOf = (item) => Object.values(item.votes ?? {}).filter(Boolean).length;
+
+/**
+ * Parte la lista en lo que falta, lo visto y lo quitado.
+ * `scope` dice qué cuenta como visto: "group" cuando ya la vieron todos, "me" cuando tú.
+ */
+export function groupSharedItems(items = [], members = [], context = {}, { scope = "group", now = Date.now() } = {}) {
+    const pending = [];
+    const watched = [];
+    const removed = [];
+    const limit = REMOVED_DAYS * 24 * 60 * 60 * 1000;
+
+    for (const item of items) {
+        if (item.removedAt) {
+            if (now - Date.parse(item.removedAt) < limit) removed.push(item);
+            continue;
+        }
+        const seen = seenBy(item, members, context);
+        const done = scope === "me" ? seen.includes(context.myUid) : members.length > 0 && seen.length === members.length;
+        (done ? watched : pending).push({ ...item, seen });
+    }
+
+    removed.sort((a, b) => (b.removedAt ?? "").localeCompare(a.removedAt ?? ""));
+    return { pending, watched, removed };
+}
+
+/**
+ * "¿Qué vemos hoy?" dentro de una lista: primero lo que nadie ha visto, y si no
+ * hay, lo que todavía le falta a alguien. Los votos pesan: cada uno es un boleto más.
+ */
+export function pickForGroup(items = [], members = [], context = {}, { exclude = null, random = Math.random } = {}) {
+    const { pending } = groupSharedItems(items, members, context);
+    const options = pending.filter((item) => item.id !== exclude);
+    const fresh = options.filter((item) => item.seen.length === 0);
+    const pool = fresh.length ? fresh : options;
+    if (!pool.length) return null;
+
+    const tickets = pool.map((item) => 1 + votesOf(item));
+    let ticket = random() * tickets.reduce((sum, value) => sum + value, 0);
+    for (let index = 0; index < pool.length; index += 1) {
+        ticket -= tickets[index];
+        if (ticket < 0) return pool[index];
+    }
+    return pool[pool.length - 1];
+}

@@ -1,6 +1,8 @@
+import { useMemo } from "react";
 import Avatar from "./Avatar";
-
 import { splitRated } from "../lib/ratings";
+import { groupSharedItems } from "../lib/social";
+import { lookOf } from "../lib/listLook";
 
 const MINE = [
     { id: "liked", label: "Me gustaron", hint: "Las que calificaste con 3★ o más" },
@@ -25,12 +27,14 @@ function Stack({ items }) {
     );
 }
 
-/** Lo calificado se parte por la nota; lo demás va tal cual. */
-const itemsOf = (lists, id) => (id === "liked" || id === "disliked" ? splitRated(lists)[id] : lists[id]);
+/** Índice de listas: las tuyas y las que llevas con alguien más, con el mismo peso. */
+export default function ListsScreen({ lists, sharedLists, listItems = {}, context, onOpenMine, onOpenShared, onNewShared, onTonight, canShare, people }) {
+    // Lo calificado se parte por la nota; lo demás va tal cual. Se calcula una vez.
+    const mine = useMemo(() => {
+        const rated = splitRated(lists);
+        return { ...lists, liked: rated.liked, disliked: rated.disliked };
+    }, [lists]);
 
-/** Índice de listas: las tuyas y las que llevas con alguien más. */
-export default function ListsScreen({ lists, sharedLists, onOpenMine, onOpenShared, onNewShared, onTonight, canShare, profiles = {} }) {
-    const quien = (list, uid) => profiles[uid] ?? list.profiles?.[uid] ?? {};
     return (
         <main className="screen">
             <button type="button" className="tonight-btn" onClick={onTonight}>
@@ -45,19 +49,18 @@ export default function ListsScreen({ lists, sharedLists, onOpenMine, onOpenShar
 
             <h3 className="section-title">Tus listas</h3>
             <div className="list-grid">
-                {MINE.map((item) => (
-                    <button key={item.id} type="button" className="list-card" onClick={() => onOpenMine(item.id)}>
-                        <Stack items={itemsOf(lists, item.id)} />
-                        <span className="list-card-text">
-                            <b>{item.label}</b>
-                            <small>
-                                {itemsOf(lists, item.id).length
-                                    ? `${itemsOf(lists, item.id).length} ${itemsOf(lists, item.id).length === 1 ? "título" : "títulos"}`
-                                    : item.hint}
-                            </small>
-                        </span>
-                    </button>
-                ))}
+                {MINE.map((item) => {
+                    const count = mine[item.id].length;
+                    return (
+                        <button key={item.id} type="button" className="list-card" onClick={() => onOpenMine(item.id)}>
+                            <Stack items={mine[item.id]} />
+                            <span className="list-card-text">
+                                <b>{item.label}</b>
+                                <small>{count ? `${count} ${count === 1 ? "título" : "títulos"}` : item.hint}</small>
+                            </span>
+                        </button>
+                    );
+                })}
             </div>
 
             <div className="section-head">
@@ -73,26 +76,44 @@ export default function ListsScreen({ lists, sharedLists, onOpenMine, onOpenShar
                 <p className="notice">Entra con tu cuenta para armar listas con tus amigos.</p>
             ) : sharedLists.length === 0 ? (
                 <p className="notice">
-                    Un “pendientes” compartido: cualquiera agrega títulos y todos ven lo que falta por ver.
+                    Un “pendientes” compartido: cualquiera agrega títulos, cada quien palomea lo que ya vio y el dado elige
+                    qué ver juntos.
                 </p>
             ) : (
-                sharedLists.map((list) => (
-                    <button key={list.id} type="button" className="friend-row is-button" onClick={() => onOpenShared(list)}>
-                        <span className="list-dot" aria-hidden="true" />
-                        <span className="grow">
-                            <b>{list.name}</b>
-                            <small>{list.members.map((uid) => quien(list, uid).name ?? "Alguien").join(" · ")}</small>
-                        </span>
-                        <span className="members">
-                            {list.members.slice(0, 3).map((uid) => (
-                                <span key={uid} className="member">
-                                    <Avatar user={{ displayName: quien(list, uid).name ?? "?" }} photo={quien(list, uid).photo} />
-                                </span>
-                            ))}
-                        </span>
-                    </button>
-                ))
+                <div className="list-grid">
+                    {sharedLists.map((list) => (
+                        <SharedCard key={list.id} list={list} items={listItems[list.id]} context={context} people={people} onOpen={() => onOpenShared(list)} />
+                    ))}
+                </div>
             )}
         </main>
+    );
+}
+
+function SharedCard({ list, items, context, people, onOpen }) {
+    const look = lookOf(list);
+    const groups = useMemo(() => groupSharedItems(items ?? [], list.members, context), [items, list.members, context]);
+    const pending = groups.pending.length;
+    const status = items === undefined ? "Cargando…" : pending ? `${pending} por ver` : groups.watched.length ? "Ya vieron todo" : "Vacía";
+
+    return (
+        <button type="button" className="list-card is-shared" style={{ "--list-color": look.color }} onClick={onOpen}>
+            <Stack items={groups.pending.length ? groups.pending : groups.watched} />
+            <span className="list-card-text">
+                <b>
+                    <span aria-hidden="true">{look.emoji} </span>
+                    {list.name}
+                </b>
+                <small>{status}</small>
+                <span className="members is-mini" aria-label={list.members.map((uid) => people(uid, list).name ?? "Alguien").join(", ")}>
+                    {list.members.slice(0, 4).map((uid) => (
+                        <span key={uid} className="member">
+                            <Avatar user={{ displayName: people(uid, list).name ?? "?" }} photo={people(uid, list).photo} />
+                        </span>
+                    ))}
+                    {list.members.length > 4 && <span className="member is-more">+{list.members.length - 4}</span>}
+                </span>
+            </span>
+        </button>
     );
 }

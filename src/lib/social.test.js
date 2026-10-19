@@ -9,7 +9,11 @@ import {
     makeCode,
     normalizeCode,
     ratingsByItem,
-    sortSharedItems,
+    groupSharedItems,
+    pickForGroup,
+    seenBy,
+    toSharedItem,
+    votesOf,
     trendingAmongFriends,
     watchTogether,
 } from "./social";
@@ -157,13 +161,73 @@ describe("lo que anda viendo tu círculo", () => {
 });
 
 describe("listas en conjunto", () => {
-    it("las ya vistas se van hasta abajo", () => {
+    const MEMBERS = ["yo", "ana"];
+    const NOW = Date.parse("2026-10-18T12:00:00Z");
+
+    it("no comparte tus estrellas ni tus decisiones", () => {
+        const shared = toSharedItem({ id: "a", title: "A", stars: 2, decision: "skipped", updatedAt: "x", poster: undefined });
+        expect(shared).toEqual({ id: "a", title: "A" });
+    });
+
+    it("cuenta como vista la palomita y también lo que ya calificaste", () => {
+        const item = { id: "a", watchedBy: { ana: "2026-10-01" } };
+        expect(seenBy(item, MEMBERS, { myUid: "yo" })).toEqual(["ana"]);
+        expect(seenBy(item, MEMBERS, { myUid: "yo", mine: library(title("a", "liked")) })).toEqual(["yo", "ana"]);
+        // Tenerla pendiente no es haberla visto
+        expect(seenBy({ id: "a" }, MEMBERS, { myUid: "yo", mine: library(title("a", "watchlist")) })).toEqual([]);
+    });
+
+    it("lo de un amigo también cuenta, si su biblioteca está a la mano", () => {
+        const libraries = { ana: library(title("a", "disliked")) };
+        expect(seenBy({ id: "a" }, MEMBERS, { myUid: "yo", libraries })).toEqual(["ana"]);
+    });
+
+    it("respeta la palomita vieja, que era para todos", () => {
+        expect(seenBy({ id: "a", watched: true }, MEMBERS)).toEqual(MEMBERS);
+    });
+
+    it("en grupo, se archiva hasta que la vieron todos", () => {
+        const items = [{ id: "a", watchedBy: { yo: "x" } }, { id: "b", watchedBy: { yo: "x", ana: "y" } }, { id: "c" }];
+        const group = groupSharedItems(items, MEMBERS, { myUid: "yo" }, { now: NOW });
+        expect(group.pending.map((item) => item.id)).toEqual(["a", "c"]);
+        expect(group.watched.map((item) => item.id)).toEqual(["b"]);
+
+        const mine = groupSharedItems(items, MEMBERS, { myUid: "yo" }, { scope: "me", now: NOW });
+        expect(mine.watched.map((item) => item.id)).toEqual(["a", "b"]);
+    });
+
+    it("lo quitado se guarda aparte y se olvida a los 30 días", () => {
         const items = [
-            { id: "a", watched: true, addedAt: "2026-01-03" },
-            { id: "b", addedAt: "2026-01-01" },
-            { id: "c", addedAt: "2026-01-02" },
+            { id: "a", removedAt: "2026-10-10T00:00:00Z" },
+            { id: "b", removedAt: "2026-08-01T00:00:00Z" },
+            { id: "c", removedAt: "2026-10-15T00:00:00Z" },
         ];
-        expect(sortSharedItems(items).map((item) => item.id)).toEqual(["c", "b", "a"]);
+        const group = groupSharedItems(items, MEMBERS, {}, { now: NOW });
+        expect(group.removed.map((item) => item.id)).toEqual(["c", "a"]);
+        expect(group.pending).toHaveLength(0);
+    });
+
+    it("los votos se cuentan por persona", () => {
+        expect(votesOf({ votes: { yo: true, ana: true, luis: false } })).toBe(2);
+        expect(votesOf({})).toBe(0);
+    });
+
+    it("para hoy, propone primero lo que nadie ha visto", () => {
+        const items = [{ id: "a", watchedBy: { ana: "x" } }, { id: "b" }];
+        expect(pickForGroup(items, MEMBERS, { myUid: "yo" }, { random: () => 0.99 }).id).toBe("b");
+    });
+
+    it("si todo lo vio alguien, propone lo que le falta a otro", () => {
+        const items = [{ id: "a", watchedBy: { ana: "x" } }, { id: "b", watchedBy: { yo: "x", ana: "y" } }];
+        expect(pickForGroup(items, MEMBERS, { myUid: "yo" }).id).toBe("a");
+    });
+
+    it("los votos dan más boletos y se puede pedir otra", () => {
+        const items = [{ id: "a" }, { id: "b", votes: { yo: true, ana: true } }];
+        // a tiene 1 boleto y b tiene 3: el 0.5 cae en b
+        expect(pickForGroup(items, MEMBERS, {}, { random: () => 0.5 }).id).toBe("b");
+        expect(pickForGroup(items, MEMBERS, {}, { exclude: "b", random: () => 0.5 }).id).toBe("a");
+        expect(pickForGroup([], MEMBERS)).toBeNull();
     });
 });
 

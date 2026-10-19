@@ -1,8 +1,22 @@
+import { useEffect, useState } from "react";
 import Avatar from "./Avatar";
 import Sheet from "./Sheet";
 
 /** Cuando abres un link de invitación: "¿quieres agregar a ...?" */
-export default function AddFriendSheet({ person, username, user, onAdd, onLogin, onClose }) {
+export default function AddFriendSheet({ username, user, enabled, lookup, onAdd, onLogin, onClose }) {
+    // Se busca a quién te quieren presentar en cuanto hay sesión
+    const [person, setPerson] = useState(null);
+    useEffect(() => {
+        if (!enabled) return;
+        let alive = true;
+        lookup(username)
+            .then((found) => alive && setPerson(found))
+            .catch(() => {});
+        return () => {
+            alive = false;
+        };
+    }, [enabled, username]); // eslint-disable-line react-hooks/exhaustive-deps
+
     const nombre = person?.name ?? `@${username}`;
 
     return (

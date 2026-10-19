@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { useLayer } from "../lib/layers";
 
 /**
  * La hoja que sube desde abajo. Todas las de la app pasan por aquí.
@@ -12,35 +13,17 @@ import { useEffect, useRef, useState } from "react";
  */
 export default function Sheet({ title, subtitle, onClose, children, footer = null, full = false }) {
     const [drag, setDrag] = useState(0); // cuánto la llevas jalada hacia abajo
+    const [dragging, setDragging] = useState(false); // sin transición mientras el dedo la mueve
     const start = useRef(null);
     const panel = useRef(null);
 
-    // El fondo se queda quieto mientras la hoja está abierta
-    useEffect(() => {
-        const { body } = document;
-        const before = body.style.overflow;
-        body.style.overflow = "hidden";
-        return () => {
-            body.style.overflow = before;
-        };
-    }, []);
-
-    // Escape cierra, aunque el foco ande en otro lado
-    useEffect(() => {
-        const onKey = (event) => {
-            if (event.key === "Escape") {
-                event.stopPropagation();
-                onClose();
-            }
-        };
-        window.addEventListener("keydown", onKey, true);
-        return () => window.removeEventListener("keydown", onKey, true);
-    }, [onClose]);
+    useLayer(onClose);
 
     function down(event) {
         // Solo se jala desde el encabezado, para no pelearse con el scroll del contenido
         if (!event.target.closest(".sheet-head-bar")) return;
         start.current = { y: event.clientY, t: Date.now() };
+        setDragging(true);
     }
 
     function move(event) {
@@ -53,6 +36,7 @@ export default function Sheet({ title, subtitle, onClose, children, footer = nul
         if (!start.current) return;
         const quick = Date.now() - start.current.t < 300 && drag > 50;
         start.current = null;
+        setDragging(false);
         if (drag > 140 || quick) onClose();
         else setDrag(0); // pase lo que pase, regresa a su sitio
     }
@@ -67,7 +51,7 @@ export default function Sheet({ title, subtitle, onClose, children, footer = nul
                 aria-label={title}
                 style={{
                     transform: drag ? `translateY(${drag}px)` : "",
-                    transition: start.current ? "none" : "transform 0.26s cubic-bezier(0.2, 0.9, 0.3, 1)",
+                    transition: dragging ? "none" : "transform 0.26s cubic-bezier(0.2, 0.9, 0.3, 1)",
                 }}
                 onPointerDown={down}
                 onPointerMove={move}

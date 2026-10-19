@@ -54,12 +54,16 @@ export function useLibrary() {
     // Foto y nombre propios: si los pones, ganan sobre los de Google
     const [photo, setPhoto] = useState(() => localStorage.getItem(PHOTO_KEY));
     const [name, setName] = useState(() => localStorage.getItem(NAME_KEY));
+    // Lo que calificaste sin cuenta en este navegador. No se sube solo: si tu cuenta
+    // ya tenía calificaciones, mezclarlas pisaría unas con otras. Solo se avisa.
+    const [localCount, setLocalCount] = useState(() => Object.keys(readLocal()).length);
 
     useEffect(() => {
         if (!cloudEnabled) return;
         return onAuthStateChanged(auth, (current) => {
             setUser(current);
             setAuthReady(true);
+            setLocalCount(Object.keys(readLocal()).length);
             if (!current) {
                 setLibrary(readLocal());
                 setLibraryReady(true); // sin sesión, lo local ya está listo
@@ -83,7 +87,9 @@ export function useLibrary() {
     // El perfil (de momento solo la foto) vive en su propio documento
     useEffect(() => {
         if (!cloudEnabled || !user) {
+            // Al cerrar sesión se regresa a lo de este navegador, nombre incluido
             setPhoto(localStorage.getItem(PHOTO_KEY));
+            setName(localStorage.getItem(NAME_KEY));
             return;
         }
         return onSnapshot(doc(db, "users", user.uid), (snapshot) => {
@@ -123,19 +129,22 @@ export function useLibrary() {
         [user],
     );
 
-    const decide = useCallback(
-        async (item, decision, stars = null) => {
-            const entry = toEntry(item, decision, stars);
-            setLibrary((current) => ({ ...current, [item.id]: entry }));
+    /** Escribe una entrada tal cual, sin tocar su fecha: para deshacer. */
+    const restore = useCallback(
+        async (entry) => {
+            setLibrary((current) => ({ ...current, [entry.id]: entry }));
 
             if (cloudEnabled && user) {
-                await setDoc(doc(db, "users", user.uid, "items", item.id), entry);
+                await setDoc(doc(db, "users", user.uid, "items", entry.id), entry);
             } else {
-                writeLocal({ ...readLocal(), [item.id]: entry });
+                writeLocal({ ...readLocal(), [entry.id]: entry });
+                setLocalCount(Object.keys(readLocal()).length);
             }
         },
         [user],
     );
+
+    const decide = useCallback((item, decision, stars = null) => restore(toEntry(item, decision, stars)), [restore]);
 
     const forget = useCallback(
         async (id) => {
@@ -151,20 +160,11 @@ export function useLibrary() {
                 const local = readLocal();
                 delete local[id];
                 writeLocal(local);
+                setLocalCount(Object.keys(local).length);
             }
         },
         [user],
     );
-
-    /** Al entrar con cuenta por primera vez, se suben las listas que hiciste sin sesión. */
-    const mergeLocalIntoCloud = useCallback(async () => {
-        if (!cloudEnabled || !user) return 0;
-        const local = readLocal();
-        const entries = Object.values(local);
-        await Promise.all(entries.map((entry) => setDoc(doc(db, "users", user.uid, "items", entry.id), entry)));
-        if (entries.length) writeLocal({});
-        return entries.length;
-    }, [user]);
 
     const lists = useMemo(() => {
         const all = Object.values(library);
@@ -176,7 +176,7 @@ export function useLibrary() {
         };
     }, [library]);
 
-    return { user, authReady, libraryReady, cloudEnabled, library, lists, photo, name, savePhoto, saveName, decide, forget, mergeLocalIntoCloud };
+    return { user, authReady, libraryReady, cloudEnabled, library, lists, photo, name, localCount, savePhoto, saveName, decide, restore, forget };
 }
 
 const byRecent = (a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "");

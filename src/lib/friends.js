@@ -5,17 +5,21 @@ import {
     arrayUnion,
     collection,
     deleteDoc,
+    deleteField,
     doc,
     getDoc,
+    getDocs,
     onSnapshot,
     query,
     serverTimestamp,
     setDoc,
     updateDoc,
     where,
+    writeBatch,
 } from "firebase/firestore";
 import { cloudEnabled, db } from "./firebase";
-import { friendshipId, normalizeUsername, ratingsByItem, suggestUsername, usernameError } from "./social";
+import { DEFAULT_LOOK } from "./listLook";
+import { friendshipId, normalizeUsername, ratingsByItem, suggestUsername, toSharedItem, usernameError } from "./social";
 
 /** Lo que de verdad importa compartir: lo descartado no sale de tu cuenta. */
 const SHARED_DECISIONS = ["liked", "disliked", "watchlist"];
@@ -82,6 +86,8 @@ export function useFriends(user, photo, name) {
     // su foto o su nombre, se ve al instante en vez de la copia vieja
     const [profiles, setProfiles] = useState({});
     const [lists, setLists] = useState([]);
+    const [listsReady, setListsReady] = useState(false);
+    const [listItems, setListItems] = useState({}); // títulos de cada lista en conjunto
     const enabled = Boolean(cloudEnabled && user);
 
     useEffect(() => {
@@ -91,6 +97,8 @@ export function useFriends(user, photo, name) {
             setLibraries({});
             setRecs([]);
             setLists([]);
+            setListItems({});
+            setListsReady(false);
             return;
         }
         ensureProfile(user, photo, name)
@@ -177,8 +185,30 @@ export function useFriends(user, photo, name) {
                     .map((document) => ({ id: document.id, ...document.data() }))
                     .sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0)),
             );
+            setListsReady(true);
         });
     }, [enabled, user]);
+
+    // Los títulos de cada lista, en vivo: el índice muestra cuántas faltan y la
+    // hoja de compartir sabe si un título ya estaba. Es un listener por lista.
+    const listIds = lists.map((list) => list.id).join(",");
+    useEffect(() => {
+        if (!enabled || !listIds) {
+            setListItems({});
+            return;
+        }
+        const unsubscribes = listIds.split(",").map((listId) =>
+            onSnapshot(
+                collection(db, "lists", listId, "items"),
+                (snapshot) => {
+                    const items = snapshot.docs.map((document) => ({ ...document.data(), id: document.id }));
+                    setListItems((current) => ({ ...current, [listId]: items }));
+                },
+                () => setListItems((current) => ({ ...current, [listId]: [] })),
+            ),
+        );
+        return () => unsubscribes.forEach((stop) => stop());
+    }, [enabled, listIds]);
 
     const peopleIds = useMemo(() => {
         const ids = new Set(user ? [user.uid] : []);
@@ -297,13 +327,15 @@ export function useFriends(user, photo, name) {
     const dismissRec = useCallback((item) => deleteDoc(doc(db, "users", user.uid, "recs", item.id)), [user]);
 
     const createList = useCallback(
-        async (name, members = []) => {
+        async (name, members = [], { emoji = DEFAULT_LOOK.emoji, color = DEFAULT_LOOK.color } = {}) => {
             const everyone = [user.uid, ...members.map((friend) => friend.uid)];
             const profiles = { [user.uid]: { name: profile?.name ?? "Yo", photo: profile?.photo ?? null } };
             members.forEach((friend) => (profiles[friend.uid] = { name: friend.name, photo: friend.photo ?? null }));
 
             const created = await addDoc(collection(db, "lists"), {
                 name,
+                emoji,
+                color,
                 members: everyone,
                 profiles,
                 createdBy: user.uid,
@@ -314,26 +346,73 @@ export function useFriends(user, photo, name) {
         [user, profile],
     );
 
+    const me = useCallback(() => ({ uid: user.uid, name: profile?.name ?? "Alguien" }), [user, profile]);
+
+    /**
+     * Echar un título a una lista. Si ya estaba, no se toca (antes se le borraba la
+     * palomita); si alguien lo había quitado, regresa. Dice cuál de las tres pasó.
+     */
     const addToList = useCallback(
-        (listId, item) =>
-            setDoc(doc(db, "lists", listId, "items", item.id), {
-                ...stripUndefined(item),
-                addedBy: { uid: user.uid, name: profile?.name ?? "Alguien" },
+        async (listId, item) => {
+            const reference = doc(db, "lists", listId, "items", item.id);
+            const existing = await getDoc(reference);
+            if (existing.exists() && !existing.data().removedAt) return "already";
+            if (existing.exists()) {
+                await updateDoc(reference, {
+                    removedAt: null,
+                    removedBy: null,
+                    addedBy: me(),
+                    addedAt: new Date().toISOString(),
+                });
+                return "restored";
+            }
+            await setDoc(reference, {
+                ...toSharedItem(item),
+                addedBy: me(),
                 addedAt: new Date().toISOString(),
-                watched: false,
-            }),
-        [user, profile],
+                watchedBy: {},
+                votes: {},
+                removedAt: null,
+                removedBy: null,
+            });
+            return "added";
+        },
+        [me],
     );
 
-    const removeFromList = useCallback((listId, itemId) => deleteDoc(doc(db, "lists", listId, "items", itemId)), []);
+    /** Quitar es borrado suave: se puede deshacer y queda en "Quitadas" un tiempo. */
+    const removeFromList = useCallback(
+        (listId, item) =>
+            updateDoc(doc(db, "lists", listId, "items", item.id), { removedAt: new Date().toISOString(), removedBy: me() }),
+        [me],
+    );
 
+    const restoreToList = useCallback(
+        (listId, item) => updateDoc(doc(db, "lists", listId, "items", item.id), { removedAt: null, removedBy: null }),
+        [],
+    );
+
+    /** Ya sin vuelta atrás. */
+    const purgeFromList = useCallback((listId, item) => deleteDoc(doc(db, "lists", listId, "items", item.id)), []);
+
+    /**
+     * La palomita es de cada quien: que tú la hayas visto no quiere decir que la
+     * vio todo el grupo. Las listas viejas tenían una sola para todos; al tocarla
+     * se convierte a la nueva forma.
+     */
     const markWatched = useCallback(
         (listId, item, watched) =>
             updateDoc(doc(db, "lists", listId, "items", item.id), {
-                watched,
-                watchedAt: watched ? new Date().toISOString() : null,
+                [`watchedBy.${user.uid}`]: watched ? new Date().toISOString() : deleteField(),
+                ...(item.watched !== undefined ? { watched: deleteField(), watchedAt: deleteField() } : {}),
             }),
-        [],
+        [user],
+    );
+
+    const vote = useCallback(
+        (listId, item, on) =>
+            updateDoc(doc(db, "lists", listId, "items", item.id), { [`votes.${user.uid}`]: on ? true : deleteField() }),
+        [user],
     );
 
     const inviteToList = useCallback(
@@ -345,11 +424,78 @@ export function useFriends(user, photo, name) {
         [],
     );
 
+    /** Nombre, emoji y color. Si hay link de invitación, se le actualiza el nombre. */
+    const updateList = useCallback(async (list, fields) => {
+        await updateDoc(doc(db, "lists", list.id), fields);
+        if (list.inviteToken && (fields.name || fields.emoji)) {
+            await updateDoc(doc(db, "listInvites", list.inviteToken), {
+                name: fields.name ?? list.name,
+                emoji: fields.emoji ?? list.emoji ?? null,
+            }).catch(() => {});
+        }
+    }, []);
+
+    /**
+     * El link para que alguien entre a la lista aunque no sea tu amigo todavía.
+     * El token es la llave: sin él nadie puede ni ver la lista.
+     */
+    const inviteLink = useCallback(
+        async (list) => {
+            let token = list.inviteToken;
+            if (!token) {
+                token = randomToken();
+                await setDoc(doc(db, "listInvites", token), {
+                    listId: list.id,
+                    name: list.name,
+                    emoji: list.emoji ?? null,
+                    by: me(),
+                    createdAt: serverTimestamp(),
+                });
+                await updateDoc(doc(db, "lists", list.id), { inviteToken: token });
+            }
+            return `${location.origin}/?l=${token}`;
+        },
+        [me],
+    );
+
+    const lookupListInvite = useCallback(async (token) => {
+        const found = await getDoc(doc(db, "listInvites", token));
+        return found.exists() ? { token, ...found.data() } : null;
+    }, []);
+
+    const joinList = useCallback(
+        (invite) =>
+            updateDoc(doc(db, "lists", invite.listId), {
+                members: arrayUnion(user.uid),
+                [`profiles.${user.uid}`]: { name: profile?.name ?? "Alguien", photo: profile?.photo ?? null },
+                [`joins.${user.uid}`]: invite.token,
+            }),
+        [user, profile],
+    );
+
+    /**
+     * Salirse. Si eres el último, se borra todo: la lista, sus títulos (Firestore
+     * no los borra solo y se quedarían huérfanos) y su link de invitación.
+     */
     const leaveList = useCallback(
-        (list) =>
-            list.members.length <= 1
-                ? deleteDoc(doc(db, "lists", list.id))
-                : updateDoc(doc(db, "lists", list.id), { members: arrayRemove(user.uid) }),
+        async (list) => {
+            if (list.members.length > 1) {
+                await updateDoc(doc(db, "lists", list.id), { members: arrayRemove(user.uid) });
+                return;
+            }
+            const items = await getDocs(collection(db, "lists", list.id, "items"));
+            const references = items.docs.map((document) => document.ref);
+            // Un batch aguanta 500 escrituras; la lista y su link van en el último
+            for (let start = 0; start < references.length; start += 450) {
+                const batch = writeBatch(db);
+                references.slice(start, start + 450).forEach((reference) => batch.delete(reference));
+                await batch.commit();
+            }
+            const batch = writeBatch(db);
+            if (list.inviteToken) batch.delete(doc(db, "listInvites", list.inviteToken));
+            batch.delete(doc(db, "lists", list.id));
+            await batch.commit();
+        },
         [user],
     );
 
@@ -365,6 +511,8 @@ export function useFriends(user, photo, name) {
         ratings,
         recs,
         lists,
+        listsReady,
+        listItems,
         invite,
         lookup,
         changeUsername,
@@ -376,27 +524,17 @@ export function useFriends(user, photo, name) {
         createList,
         addToList,
         removeFromList,
+        restoreToList,
+        purgeFromList,
         markWatched,
+        vote,
         inviteToList,
+        updateList,
+        inviteLink,
+        lookupListInvite,
+        joinList,
         leaveList,
     };
-}
-
-/** Escucha los títulos de una lista en conjunto mientras está abierta. */
-export function useSharedItems(listId) {
-    const [items, setItems] = useState([]);
-
-    useEffect(() => {
-        if (!cloudEnabled || !listId) {
-            setItems([]);
-            return;
-        }
-        return onSnapshot(collection(db, "lists", listId, "items"), (snapshot) => {
-            setItems(snapshot.docs.map((document) => ({ ...document.data(), id: document.id })));
-        });
-    }, [listId]);
-
-    return items;
 }
 
 const toFriend = (link, myUid, profiles = {}) => {
@@ -404,6 +542,12 @@ const toFriend = (link, myUid, profiles = {}) => {
     // Manda el perfil en vivo; la copia guardada en la amistad es el respaldo
     const data = profiles[uid] ?? link.profiles?.[uid] ?? {};
     return { id: link.id, uid, name: data.name ?? "Alguien", photo: data.photo ?? null, status: link.status };
+};
+
+/** Para los links de invitación: largo y al azar, para que no se pueda adivinar. */
+const randomToken = () => {
+    const bytes = crypto.getRandomValues(new Uint8Array(15));
+    return [...bytes].map((byte) => byte.toString(36).padStart(2, "0")).join("").slice(0, 24);
 };
 
 /** Firestore no traga `undefined`, y los títulos de TMDB traen huecos. */

@@ -1,12 +1,21 @@
 import { useState } from "react";
 import Avatar from "./Avatar";
 import Sheet from "./Sheet";
+import { lookOf } from "../lib/listLook";
+
+const ADDED = {
+    added: (item, list) => `“${item.title}” va en ${list.name}`,
+    already: (item, list) => `Ya estaba en ${list.name}`,
+    restored: (item, list) => `Regresó a ${list.name}`,
+};
 
 /**
  * Hoja para compartir un título: mandárselo a un amigo o echarlo a una lista
  * en conjunto. Sin título (`item` en null) sirve para crear una lista nueva.
  */
-export default function ShareSheet({ item, friends, lists, social, onClose, onToast }) {
+export default function ShareSheet({ item, friends, lists, listItems = {}, social, onClose, onToast }) {
+    /** Si el título ya está (y nadie lo quitó) en esa lista, para no ofrecerla como nueva. */
+    const isIn = (list) => (listItems[list.id] ?? []).some((entry) => entry.id === item?.id && !entry.removedAt);
     const [name, setName] = useState("");
     const [invited, setInvited] = useState([]);
     const [creating, setCreating] = useState(!item);
@@ -28,7 +37,7 @@ export default function ShareSheet({ item, friends, lists, social, onClose, onTo
             );
             if (item) await social.addToList(listId, item);
             onToast(item ? `“${item.title}” va en ${name.trim()}` : `Lista “${name.trim()}” creada`);
-            onClose();
+            onClose(item ? null : listId);
         } catch {
             onToast("No se pudo crear la lista");
         } finally {
@@ -74,17 +83,21 @@ export default function ShareSheet({ item, friends, lists, social, onClose, onTo
                                 <button
                                     key={list.id}
                                     type="button"
-                                    className="chip"
+                                    className={`chip ${isIn(list) ? "is-on" : ""}`}
+                                    disabled={isIn(list)}
                                     onClick={() =>
                                         social
                                             .addToList(list.id, item)
-                                            .then(() => onToast(`Va en ${list.name}`))
+                                            .then((result) => onToast(ADDED[result](item, list)))
                                             .then(onClose)
                                             .catch(() => onToast("No se pudo agregar"))
                                     }
                                 >
-                                    <span className="list-dot" aria-hidden="true" />
+                                    <span className="list-dot" style={{ background: lookOf(list).color }} aria-hidden="true">
+                                        {lookOf(list).emoji}
+                                    </span>
                                     {list.name}
+                                    {isIn(list) && <small> · ya está</small>}
                                 </button>
                             ))}
                             {!creating && (

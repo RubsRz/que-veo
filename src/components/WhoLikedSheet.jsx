@@ -8,7 +8,7 @@ const label = (opinion) => {
 };
 
 /** A quiénes de tus amigos les gustó este título, al tocar la burbuja del póster. */
-export default function WhoLikedSheet({ item, opinions, onClose, onOpenFriend }) {
+export default function WhoLikedSheet({ item, opinions, onClose }) {
     return (
         <Sheet onClose={onClose} title="Qué dicen tus amigos" subtitle={item.title}>
             <ul className="friend-opinions">

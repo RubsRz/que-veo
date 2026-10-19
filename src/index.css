@@ -1733,11 +1733,6 @@ h3 {
 }
 
 /* El chip de dirección del orden */
-.chip.is-direction {
-    gap: 6px;
-    padding: 7px 12px;
-}
-
 /* Fichas de selección (amigos, listas) */
 .chips {
     display: flex;
@@ -1806,93 +1801,6 @@ h3 {
     font-size: 1.1rem;
 }
 
-.invite-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 10px;
-}
-
-.shared-items {
-    display: grid;
-    gap: 8px;
-    margin-top: 14px;
-    list-style: none;
-}
-
-.shared-items li {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    background: var(--surface-2);
-}
-
-.shared-items li.is-watched {
-    opacity: 0.55;
-}
-
-.shared-items li.is-watched .shared-title b {
-    text-decoration: line-through;
-}
-
-.shared-items .tick {
-    display: grid;
-    place-items: center;
-    width: 26px;
-    height: 26px;
-    flex-shrink: 0;
-    border: 1.5px solid var(--border);
-    border-radius: 50%;
-    color: transparent;
-}
-
-.shared-items .tick svg {
-    width: 15px;
-    height: 15px;
-}
-
-.shared-items li.is-watched .tick {
-    border-color: var(--like);
-    background: var(--like);
-    color: #fff;
-}
-
-.shared-title {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex: 1;
-    min-width: 0;
-    text-align: left;
-}
-
-.shared-title img {
-    width: 38px;
-    height: 57px;
-    flex-shrink: 0;
-    border-radius: 6px;
-    object-fit: cover;
-}
-
-.shared-title span {
-    min-width: 0;
-}
-
-.shared-items .icon-btn {
-    width: 32px;
-    height: 32px;
-    flex-shrink: 0;
-}
-
-.shared-items .icon-btn svg {
-    width: 15px;
-    height: 15px;
-}
-
-/* Aviso de que hay algo nuevo en Amigos */
 .tabbar button .dot {
     position: absolute;
     top: 8px;
@@ -1905,17 +1813,6 @@ h3 {
 
 .tabbar button {
     position: relative;
-}
-
-.shared-title b {
-    display: block;
-    font-size: 0.9rem;
-}
-
-.shared-title small {
-    display: block;
-    color: var(--muted);
-    font-size: 0.76rem;
 }
 
 .poster-note {
@@ -2068,10 +1965,6 @@ h3 {
     position: relative;
 }
 
-.grid-item.is-watched .poster img {
-    opacity: 0.45;
-}
-
 .grid-actions {
     position: absolute;
     top: 6px;
@@ -2096,11 +1989,6 @@ h3 {
 .grid-actions .tick svg {
     width: 15px;
     height: 15px;
-}
-
-.grid-item.is-watched .grid-actions .tick:not(.is-remove) {
-    border-color: var(--like);
-    background: var(--like);
 }
 
 .grid-actions .tick.is-remove {
@@ -2211,6 +2099,510 @@ h3 {
     color: var(--accent);
     font-size: 1rem;
     font-weight: 800;
+}
+
+/* ===================== Listas, segunda vuelta ===================== */
+/* Para lectores de pantalla: está ahí pero no se ve */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+/* Botones chicos por fuera, pero con 44px de área para el dedo */
+.tile-more,
+.tick,
+.member.is-add,
+.icon-btn.is-small {
+    position: relative;
+}
+
+.tile-more::before,
+.tick::before,
+.member.is-add::before,
+.icon-btn.is-small::before {
+    content: "";
+    position: absolute;
+    inset: 50% auto auto 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+}
+
+.icon-btn.is-small {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+}
+
+/* Orden y "qué cuenta como vista" en una sola fila */
+.list-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 4px 0 8px;
+}
+
+.sort-select {
+    position: relative;
+    flex: 0 1 auto;
+    min-width: 0;
+    margin-left: auto;
+}
+
+.sort-select select {
+    width: 100%;
+    text-overflow: ellipsis;
+    appearance: none;
+    min-height: 36px;
+    padding: 0 30px 0 12px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface-2);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.sort-select::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: 13px;
+    width: 6px;
+    height: 6px;
+    border-right: 2px solid var(--muted);
+    border-bottom: 2px solid var(--muted);
+    transform: translateY(-70%) rotate(45deg);
+    pointer-events: none;
+}
+
+.list-controls .segmented button {
+    min-height: 32px;
+    white-space: nowrap;
+}
+
+.section-title .count {
+    margin-left: 4px;
+    color: var(--muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+/* Un póster de la cuadrícula, con su menú y sus acciones debajo */
+.tile {
+    min-width: 0;
+    animation: tile-in 0.22s ease;
+}
+
+@keyframes tile-in {
+    from {
+        opacity: 0;
+        transform: scale(0.96);
+    }
+}
+
+.tile-poster {
+    position: relative;
+    -webkit-touch-callout: none;
+    user-select: none;
+}
+
+.tile-poster img {
+    -webkit-user-drag: none;
+}
+
+.tile-more {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+}
+
+.tile-more span {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    backdrop-filter: blur(6px);
+}
+
+.tile-faces {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    display: flex;
+}
+
+.tile-faces .avatar {
+    width: 24px;
+    height: 24px;
+    border: 2px solid var(--like);
+    font-size: 0.55rem;
+}
+
+.tile-faces .avatar + .avatar {
+    margin-left: -8px;
+}
+
+.tile-meta {
+    margin-top: 6px;
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 0.72rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tile-actions {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.tile-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 40px;
+    padding: 0 10px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface-2);
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+/* Vista: no solo cambia de color, también el texto y la palomita rellena */
+.tile-btn.is-on {
+    border-color: var(--like);
+    background: color-mix(in srgb, var(--like) 16%, transparent);
+    color: var(--like);
+}
+
+.tile-btn.is-vote {
+    min-width: 44px;
+}
+
+.tile-btn.is-vote.is-on {
+    border-color: var(--watch);
+    background: color-mix(in srgb, var(--watch) 16%, transparent);
+    color: var(--watch);
+}
+
+/* Lo archivado se ve, pero en segundo plano */
+.grid-big.is-archive .poster img {
+    opacity: 0.6;
+}
+
+/* Secciones que se pliegan: "Ya vistas", "Quitadas" */
+.fold {
+    margin-top: 18px;
+    border-top: 1px solid var(--border);
+}
+
+.fold-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 48px;
+    text-align: left;
+}
+
+.fold-head b {
+    font-size: 1rem;
+}
+
+.fold-head small {
+    color: var(--muted);
+    font-weight: 600;
+}
+
+.fold-chevron {
+    display: grid;
+    color: var(--muted);
+    transition: transform 0.18s ease;
+}
+
+.fold-chevron.is-open {
+    transform: rotate(90deg);
+}
+
+.fold-hint {
+    margin: -6px 0 10px;
+}
+
+.removed-list {
+    display: grid;
+    gap: 8px;
+}
+
+.removed-list li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+}
+
+.removed-poster {
+    width: 34px;
+    height: 50px;
+    flex-shrink: 0;
+    overflow: hidden;
+    border-radius: 6px;
+    background: var(--surface-2);
+}
+
+.removed-poster img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.6;
+}
+
+.removed-list .grow {
+    flex: 1;
+    min-width: 0;
+}
+
+.removed-list b,
+.removed-list small {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.removed-list b {
+    font-size: 0.88rem;
+}
+
+.removed-list small {
+    color: var(--muted);
+    font-size: 0.74rem;
+}
+
+/* El dado de la lista, más chico que el de la pantalla de listas */
+.tonight-btn.is-compact {
+    margin: 2px 0 10px;
+    padding: 10px 14px;
+    font-size: 0.92rem;
+}
+
+.tonight-btn.is-compact > span:first-child {
+    font-size: 1.3rem;
+}
+
+/* Encabezado de una lista en conjunto: tocar el nombre o las caras abre los ajustes */
+.detail-bar-text.is-button {
+    text-align: left;
+    border-radius: 10px;
+}
+
+.detail-bar-text h2 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.detail-bar-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.list-emoji {
+    display: inline-grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--list-color) 22%, transparent);
+    font-size: 0.95rem;
+}
+
+.detail-bar .members {
+    margin-top: 0;
+}
+
+.members-stack {
+    display: flex;
+    align-items: center;
+}
+
+.members-stack .member + .member {
+    margin-left: -10px;
+}
+
+.member.is-more {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    margin-left: -10px;
+    border: 2px solid var(--surface);
+    border-radius: 50%;
+    background: var(--surface-2);
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.members.is-mini {
+    margin-top: 6px;
+    gap: 0;
+}
+
+.members.is-mini .member .avatar,
+.members.is-mini .member.is-more {
+    width: 22px;
+    height: 22px;
+    font-size: 0.55rem;
+    border-width: 1.5px;
+}
+
+.members.is-mini .member + .member {
+    margin-left: -6px;
+}
+
+/* Las listas en conjunto en el índice: misma tarjeta que las tuyas, con su color */
+.list-card.is-shared {
+    border-left: 3px solid var(--list-color);
+}
+
+/* Un nombre largo de lista compartida llega a dos renglones y ahí se corta */
+.list-card.is-shared .list-card-text b {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.chip .list-dot {
+    display: grid;
+    place-items: center;
+    font-size: 0.8rem;
+}
+
+.chip:disabled {
+    cursor: default;
+    opacity: 0.75;
+}
+
+/* Ajustes de la lista */
+.emoji-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 6px;
+}
+
+.emoji-grid button {
+    display: grid;
+    place-items: center;
+    aspect-ratio: 1;
+    min-height: 44px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface-2);
+    font-size: 1.35rem;
+}
+
+.emoji-grid button.is-on {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+}
+
+.swatches {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.swatches button {
+    width: 36px;
+    height: 36px;
+    border: 3px solid var(--surface);
+    border-radius: 50%;
+    background: var(--swatch);
+    box-shadow: 0 0 0 1px var(--border);
+}
+
+.swatches button.is-on {
+    box-shadow: 0 0 0 2px var(--text);
+}
+
+/* Confirmar algo que no tiene vuelta atrás */
+.confirm-body {
+    color: var(--muted);
+    font-size: 0.92rem;
+}
+
+.confirm-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.btn-danger {
+    background: var(--bad);
+    color: #fff;
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.action-menu-head {
+    display: grid;
+    gap: 2px;
+    padding: 12px 16px;
+    background: var(--surface);
+    text-align: center;
+}
+
+.action-menu-head b {
+    overflow: hidden;
+    font-size: 0.9rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.action-menu-head small {
+    color: var(--muted);
+    font-size: 0.76rem;
+}
+
+.action-menu-card button:disabled {
+    color: var(--muted);
+}
+
+.join-emoji {
+    font-size: 3rem;
+    line-height: 1;
+}
+
+.notice .link-btn {
+    display: block;
+    margin: 6px 0 0;
+    padding: 4px 0;
 }
 
 @media (prefers-reduced-motion: reduce) {

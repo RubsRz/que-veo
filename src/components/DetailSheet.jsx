@@ -4,7 +4,7 @@ import TitleDetails from "./TitleDetails";
 /** La ficha de un título en celular: va dentro de la hoja estándar. */
 export default function DetailSheet({ item, entry, onClose, onDecide, onForget, friendOpinions = [], onShare = null }) {
     return (
-        <Sheet onClose={onClose} title={item.title}>
+        <Sheet onClose={onClose} title={item.title || "Ficha"}>
             <TitleDetails
                 item={item}
                 entry={entry}
@@ -12,7 +12,8 @@ export default function DetailSheet({ item, entry, onClose, onDecide, onForget, 
                 onForget={onForget}
                 friendOpinions={friendOpinions}
                 onShare={onShare}
-                hideTitle
+                // Al abrir un link a una ficha, el título llega después, con los detalles
+                hideTitle={Boolean(item.title)}
             />
         </Sheet>
     );

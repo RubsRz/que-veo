@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import Poster from "./Poster";
 import { search } from "../lib/tmdb";
+import { useLayer } from "../lib/layers";
 
 /** Buscador a pantalla completa, para calificar un título específico. */
 export default function SearchSheet({ library, onOpen, onClose }) {
     const [query, setQuery] = useState("");
     const [results, setResults] = useState([]);
     const [loading, setLoading] = useState(false);
+    useLayer(onClose);
 
     useEffect(() => {
         if (query.trim().length < 3) {

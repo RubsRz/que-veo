@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import Avatar from "./Avatar";
 import Sheet from "./Sheet";
+import ActionMenu from "./ActionMenu";
 
 /**
  * Editar tu perfil: la foto en grande y tu nombre. La foto se cambia desde un
@@ -78,34 +79,31 @@ export default function ProfileEditor({ user, photo, name, username, onSave, onS
             </Sheet>
 
             {menu && (
-                <div className="action-menu" onPointerDown={(event) => event.target === event.currentTarget && setMenu(false)}>
-                    <div className="action-menu-card" role="dialog" aria-label="Foto de perfil">
-                        <button
-                            type="button"
-                            onClick={() => {
+                <ActionMenu
+                    title="Foto de perfil"
+                    onClose={() => setMenu(false)}
+                    actions={[
+                        {
+                            label: "Elegir de la galería",
+                            onSelect: () => {
                                 setMenu(false);
                                 onPickPhoto();
-                            }}
-                        >
-                            Elegir de la galería
-                        </button>
-                        {photo && (
-                            <button
-                                type="button"
-                                className="is-danger"
-                                onClick={() => {
-                                    setMenu(false);
-                                    onRemovePhoto();
-                                }}
-                            >
-                                Eliminar foto
-                            </button>
-                        )}
-                        <button type="button" className="is-cancel" onClick={() => setMenu(false)}>
-                            Cancelar
-                        </button>
-                    </div>
-                </div>
+                            },
+                        },
+                        ...(photo
+                            ? [
+                                  {
+                                      label: "Eliminar foto",
+                                      danger: true,
+                                      onSelect: () => {
+                                          setMenu(false);
+                                          onRemovePhoto();
+                                      },
+                                  },
+                              ]
+                            : []),
+                    ]}
+                />
             )}
         </>
     );

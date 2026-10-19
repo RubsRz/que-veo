@@ -1,14 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import SwipeCard from "./components/SwipeCard";
-import Poster from "./components/Poster";
 import DetailSheet from "./components/DetailSheet";
 import Tonight from "./components/Tonight";
 import StarsPrompt from "./components/StarsPrompt";
 import SearchSheet from "./components/SearchSheet";
-import ActionButtons from "./components/ActionButtons";
 import PosterViewer from "./components/PosterViewer";
-import DetailPanel from "./components/DetailPanel";
-import Avatar from "./components/Avatar";
 import FriendsScreen from "./components/FriendsScreen";
 import FriendSheet from "./components/FriendSheet";
 import ListsScreen from "./components/ListsScreen";
@@ -17,14 +12,24 @@ import ShareSheet from "./components/ShareSheet";
 import WhoLikedSheet from "./components/WhoLikedSheet";
 import ProfileEditor from "./components/ProfileEditor";
 import AddFriendSheet from "./components/AddFriendSheet";
+import ExploreScreen from "./components/ExploreScreen";
+import ProfileScreen from "./components/ProfileScreen";
+import ActionMenu from "./components/ActionMenu";
+import ConfirmSheet from "./components/ConfirmSheet";
+import InviteToListSheet from "./components/InviteToListSheet";
+import ListSettingsSheet from "./components/ListSettingsSheet";
+import JoinListSheet from "./components/JoinListSheet";
+import ListPickSheet from "./components/ListPickSheet";
 import { useLibrary } from "./lib/library";
 import { useFriends } from "./lib/friends";
-import { friendsBadge } from "./lib/social";
+import { useDeck } from "./lib/useDeck";
+import { listFromParam, useNavigation } from "./lib/useNavigation";
+import { useListActions } from "./lib/useListActions";
 import { splitRated } from "./lib/ratings";
 import { toAvatarDataUrl } from "./lib/image";
 import { cloudEnabled, loginWithGoogle, logout } from "./lib/firebase";
-import { buildTaste, filterDeck, libraryStats, rankDeck } from "./lib/taste";
-import { discover, getGenres, getProviders, hasApiKey, search } from "./lib/tmdb";
+import { buildTaste, filterDeck, libraryStats } from "./lib/taste";
+import { discover, getGenres, getProviders } from "./lib/tmdb";
 
 // Iconos de línea, al tono del resto de la interfaz
 const ICONS = {
@@ -41,10 +46,6 @@ const TABS = [
     { id: "profile", label: "Perfil" },
 ];
 
-// Cada tantas calificaciones se cuela una de las que dijiste que no habías visto,
-// por si ahora sí te late: la que mejor embone con tus gustos.
-const RESURFACE_EVERY = 50;
-
 const TIPS_KEY = "que-veo:tips:v1";
 
 const byRecent = (a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "");
@@ -56,38 +57,51 @@ const LIST_NAMES = {
     skipped: "No las he visto",
 };
 
+const TOAST_TEXT = {
+    liked: (stars) => (stars ? `Guardada con ${stars}★` : "Guardada"),
+    watchlist: () => "Quieres verla",
+    disliked: () => "Anotada",
+    skipped: () => "No la has visto",
+};
+
 export default function App() {
-    const { user, authReady, libraryReady, library, lists, photo, name, savePhoto, saveName, decide, forget, mergeLocalIntoCloud } =
+    const { user, authReady, libraryReady, library, lists, photo, name, localCount, savePhoto, saveName, decide, restore, forget } =
         useLibrary();
-    const [tab, setTab] = useState("explorar");
+    const nav = useNavigation();
+    const { listView, overlays, closeList } = nav;
+    // Si entraste con el link de una lista o una invitación, arrancas en Listas
+    const [tab, setTab] = useState(() => (nav.initial.lista || nav.initial.invitacion ? "lists" : "explorar"));
     const [deckType, setDeckType] = useState("movie"); // el interruptor de Películas / Series
-    const [listView, setListView] = useState(null); // la lista abierta a pantalla completa
     const [theme, setTheme] = useState(
         () => localStorage.getItem("theme") ?? (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"),
     );
     const [genres, setGenres] = useState({});
     const [providers, setProviders] = useState([]);
-    const [decks, setDecks] = useState({ movie: [], tv: [] });
-    const [pages, setPages] = useState({ movie: 1, tv: 1 });
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [openItem, setOpenItem] = useState(null);
-    const [showTonight, setShowTonight] = useState(false);
-    const [pendingLike, setPendingLike] = useState(null); // título esperando calificación
-    const [lastAction, setLastAction] = useState(null); // para deshacer
-    const [showSearch, setShowSearch] = useState(false);
-    const [posterItem, setPosterItem] = useState(null);
-    const photoInput = useRef(null);
+    const [lastAction, setLastAction] = useState(null); // para deshacer con ⌘Z
     const [isDesktop, setIsDesktop] = useState(() => matchMedia("(min-width: 1000px)").matches);
-    const [openFriend, setOpenFriend] = useState(null);
-    const [whoItem, setWhoItem] = useState(null); // a quiénes les gustó el título de la tarjeta
-    const [editingProfile, setEditingProfile] = useState(false);
-    // Invitación que llega por link: /?u=alguien
-    const [invitacion, setInvitacion] = useState(() => new URLSearchParams(location.search).get("u"));
-    const [invitado, setInvitado] = useState(null);
     // La primera vez conviene decir cómo se usa la baraja
     const [showTips, setShowTips] = useState(() => !localStorage.getItem(TIPS_KEY));
-    const [shareItem, setShareItem] = useState(null); // título a compartir; `true` = solo crear lista
+    const [toast, setToast] = useState(null);
+    // La lista a la que acabas de entrar con un link: tarda un momento en llegar
+    const [joiningId, setJoiningId] = useState(null);
+    const photoInput = useRef(null);
+
+    const social = useFriends(user, photo, name);
+    const displayName = name ?? user?.displayName ?? null;
+    // Para el puntito de la pestaña: invitaciones sin contestar y recomendaciones sin abrir
+    const novedadesSociales = social.requests.length + social.recs.length;
+
+    /**
+     * Un aviso arriba. Si trae "Deshacer" dura más: en 1.5 s casi nadie alcanzaba
+     * a leerlo y atinarle al botón.
+     */
+    const notify = useCallback((text, undo = null) => setToast({ text, undo, id: Date.now() }), []);
+
+    useEffect(() => {
+        if (!toast) return;
+        const timer = setTimeout(() => setToast(null), toast.undo ? 5000 : 1800);
+        return () => clearTimeout(timer);
+    }, [toast]);
 
     useEffect(() => {
         const media = matchMedia("(min-width: 1000px)");
@@ -95,24 +109,21 @@ export default function App() {
         media.addEventListener("change", update);
         return () => media.removeEventListener("change", update);
     }, []);
-    const [toast, setToast] = useState(null);
-    const seen = useRef(new Set());
-    // Páginas seguidas que no trajeron nada nuevo: evita pedir sin fin cuando ya viste todo
-    const emptyTries = useRef({ movie: 0, tv: 0 });
-    const revived = useRef(0); // cuántas veces ya se recuperó una "no la he visto"
 
-    const social = useFriends(user, photo, name);
-    const displayName = name ?? user?.displayName ?? null;
-    // Para el puntito de la pestaña: invitaciones sin contestar y recomendaciones sin abrir
-    const novedadesSociales = social.requests.length + social.recs.length;
-
-    // Si vienes de un link de invitación, se busca a quién te quieren presentar
     useEffect(() => {
-        if (!invitacion) return;
-        history.replaceState(null, "", location.pathname); // que el link no se quede pegado
-        if (!social.enabled) return;
-        social.lookup(invitacion).then((encontrado) => encontrado && setInvitado(encontrado));
-    }, [invitacion, social.enabled]); // eslint-disable-line react-hooks/exhaustive-deps
+        document.documentElement.dataset.theme = theme;
+        localStorage.setItem("theme", theme);
+    }, [theme]);
+
+    // Catálogos fijos: géneros (para las etiquetas) y plataformas (para los filtros)
+    useEffect(() => {
+        Promise.all([getGenres("movie"), getGenres("tv"), getProviders()])
+            .then(([movieGenres, tvGenres, providerList]) => {
+                setGenres(Object.fromEntries([...movieGenres, ...tvGenres].map((genre) => [genre.id, genre.name])));
+                setProviders(providerList);
+            })
+            .catch(() => setGenres({}));
+    }, []);
 
     /** Lo que les gustó a tus amigos y tú no has visto, para "¿qué vemos hoy?". */
     const friendPicks = useMemo(() => {
@@ -131,7 +142,6 @@ export default function App() {
     }, [social.ratings, library]);
     const friendOpinions = useCallback((item) => (item ? (social.ratings[item.id] ?? []) : []), [social.ratings]);
 
-    const type = deckType;
     // Un perfil por tipo: los géneros de cine y los de televisión no son los mismos,
     // así que lo que calificaste se traduce al vocabulario del que estés viendo.
     const tastes = useMemo(() => {
@@ -141,131 +151,61 @@ export default function App() {
             tv: buildTaste(entries, { forType: "tv" }),
         };
     }, [library]);
-    const taste = tastes[type];
+    const taste = tastes[deckType];
 
-    useEffect(() => {
-        document.documentElement.dataset.theme = theme;
-        localStorage.setItem("theme", theme);
-    }, [theme]);
+    const deck = useDeck({ type: deckType, taste, library, libraryReady });
 
-    useEffect(() => {
-        if (!toast) return;
-        const timer = setTimeout(() => setToast(null), 1500);
-        return () => clearTimeout(timer);
-    }, [toast]);
-
-    // Catálogos fijos: géneros (para las etiquetas) y plataformas (para los filtros)
-    useEffect(() => {
-        Promise.all([getGenres("movie"), getGenres("tv"), getProviders()])
-            .then(([movieGenres, tvGenres, providerList]) => {
-                setGenres(Object.fromEntries([...movieGenres, ...tvGenres].map((genre) => [genre.id, genre.name])));
-                setProviders(providerList);
-            })
-            .catch(() => setGenres({}));
-    }, []);
-
-    /** Trae más títulos, quita los que ya decidiste y los ordena según tus gustos. */
-    const loadMore = useCallback(
-        async (kind, reset = false) => {
-            setLoading(true);
-            setError(null);
-            try {
-                const page = reset ? 1 : pages[kind];
-                if (reset) emptyTries.current[kind] = 0;
-                const found = await discover({ type: kind, page, taste });
-                const fresh = rankDeck(filterDeck(found, library, seen.current), taste);
-                emptyTries.current[kind] = fresh.length ? 0 : emptyTries.current[kind] + 1;
-
-                // Cada cierto número de calificaciones se cuela una de las que dijiste
-                // que no habías visto: la que mejor embone con tus gustos, marcada.
-                const calificadas = Object.values(library).filter((entry) => entry.stars).length;
-                const toca = calificadas > 0 && Math.floor(calificadas / RESURFACE_EVERY) > revived.current;
-                if (toca && fresh.length > 3) {
-                    const skipped = Object.values(library).filter(
-                        (entry) => entry.decision === "skipped" && entry.type === kind && !seen.current.has(entry.id),
-                    );
-                    const [mejor] = rankDeck(skipped, taste);
-                    if (mejor) {
-                        revived.current = Math.floor(calificadas / RESURFACE_EVERY);
-                        fresh.splice(3, 0, { ...mejor, resurfaced: true });
-                    }
-                }
-                setDecks((current) => ({ ...current, [kind]: reset ? fresh : [...current[kind], ...fresh] }));
-                setPages((current) => ({ ...current, [kind]: page + 1 }));
-            } catch (requestError) {
-                setError(requestError.message);
-            } finally {
-                setLoading(false);
-            }
-        },
-        [pages, taste, library],
+    /** Para saber quién ya vio qué en las listas en conjunto. */
+    const seenContext = useMemo(
+        () => ({ myUid: user?.uid ?? null, mine: library, libraries: social.libraries }),
+        [user, library, social.libraries],
     );
 
-    // Primera carga de cada baraja
-    useEffect(() => {
-        // Hasta que no lleguen tus listas no se arma la baraja, para no repetir títulos
-        if (libraryReady && decks[type].length === 0 && !error) loadMore(type, true);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [type, libraryReady]);
+    /** Nombre y foto de alguien: el perfil en vivo manda sobre la copia que guardó la lista. */
+    const people = useCallback(
+        (uid, list = null) => {
+            if (uid === user?.uid) return { name: displayName ?? "Tú", photo: photo ?? user?.photoURL ?? null };
+            return social.profiles[uid] ?? list?.profiles?.[uid] ?? {};
+        },
+        [user, displayName, photo, social.profiles],
+    );
 
-    // Red de seguridad: si algo ya decidido se coló en la baraja, se quita
-    useEffect(() => {
-        setDecks((current) => {
-            const clean = {};
-            let changed = false;
-            for (const [kind, cards] of Object.entries(current)) {
-                clean[kind] = cards.filter((card) => card.resurfaced || !library[card.id]);
-                if (clean[kind].length !== cards.length) changed = true;
-            }
-            return changed ? clean : current;
-        });
-    }, [library]);
-
-    // Cuando se está acabando la baraja (o ya se vació) se piden más páginas
-    useEffect(() => {
-        if (!loading && !error && decks[type].length < 4 && emptyTries.current[type] < 5) loadMore(type);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [decks, type]);
+    /* ===================== Decidir y deshacer ===================== */
 
     function handleDecide(item, decision, stars = null) {
         // "Ya la vi" siempre pasa por el calificador, y de ahí se confirma
         if (decision === "liked" && stars === null) {
             setToast(null); // que no estorbe mientras calificas
-            setPendingLike(item);
+            nav.open("stars", { item, purpose: "decide" });
             return;
         }
-        return commitDecision(item, decision, stars);
+        commitDecision(item, decision, stars);
     }
 
-    async function commitDecision(item, decision, stars = null) {
-        seen.current.add(item.id);
-        setLastAction({ item, previous: library[item.id] ?? null });
-        await decide(item, decision, stars);
-        setDecks((current) => ({ ...current, [item.type]: current[item.type].filter((card) => card.id !== item.id) }));
-        setOpenItem(null);
-        setPendingLike(null);
-        setToast({
-            text: {
-                liked: stars ? `Guardada con ${stars}★` : "Guardada",
-                watchlist: "Quieres verla",
-                disliked: "Anotada",
-                skipped: "No la has visto",
-            }[decision],
-            // El "deshacer" va aquí mismo, a la mano, en vez de escondido en la barra
-            undo: { item, previous: library[item.id] ?? null },
-        });
+    function commitDecision(item, decision, stars = null) {
+        const action = { item, previous: library[item.id] ?? null };
+        deck.take(item);
+        setLastAction(action);
+        // Se guarda en segundo plano: sin red, Firestore lo encola y la pantalla no se atora
+        decide(item, decision, stars).catch(() => notify("No se pudo guardar"));
+        nav.close(["detail", "stars"]);
+        notify(TOAST_TEXT[decision](stars), () => undo(action));
     }
 
-    /** Deshacer la última decisión: la regresa a la baraja y restaura lo que estaba antes. */
-    async function undo(action = lastAction) {
+    /** Deshacer una decisión: regresa a la baraja y queda lo que estaba antes, tal cual. */
+    function undo(action = lastAction) {
         if (!action) return;
         const { item, previous } = action;
-        seen.current.delete(item.id);
-        if (previous) await decide(previous, previous.decision, previous.stars);
-        else await forget(item.id);
-        setDecks((current) => ({ ...current, [item.type]: [item, ...current[item.type]] }));
+        deck.putBack(item);
+        (previous ? restore(previous) : forget(item.id)).catch(() => notify("No se pudo deshacer"));
         setLastAction(null);
-        setToast("Deshecho");
+        notify("Deshecho");
+    }
+
+    /** Quitar de tus listas, con vuelta atrás. */
+    function forgetWithUndo(entry) {
+        forget(entry.id).catch(() => notify("No se pudo quitar"));
+        notify("Quitada de tus listas", () => restore(entry));
     }
 
     /** Para "¿qué vemos hoy?": trae novedades del catálogo que no estén en tus listas. */
@@ -287,8 +227,8 @@ export default function App() {
         if (!isDesktop) return;
         const onKey = (event) => {
             if (event.target.matches("input, textarea, select")) return;
-            const card = decks[type][0];
-            if (!card || openItem || pendingLike) return;
+            const card = deck.deck[0];
+            if (tab !== "explorar" || !card || overlays.length) return;
             const map = { ArrowRight: "liked", ArrowLeft: "skipped", ArrowUp: "watchlist" };
             if (map[event.key]) {
                 event.preventDefault();
@@ -302,23 +242,46 @@ export default function App() {
         return () => window.removeEventListener("keydown", onKey);
     });
 
-    // Escape cierra lo que esté abierto encima, de arriba hacia abajo
+    // Escape: las hojas se cierran solas (la de hasta arriba); si no hay ninguna, sale de la lista
     useEffect(() => {
         const onEscape = (event) => {
-            if (event.key !== "Escape") return;
-            const closers = [
-                [posterItem, () => setPosterItem(null)],
-                [showSearch, () => setShowSearch(false)],
-                [listView, () => setListView(null)],
-            ];
-            const first = closers.find(([open]) => open);
-            if (!first) return;
+            if (event.key !== "Escape" || overlays.length || !listView) return;
             event.preventDefault();
-            first[1]();
+            closeList();
         };
         window.addEventListener("keydown", onEscape);
         return () => window.removeEventListener("keydown", onEscape);
-    }, [posterItem, showSearch, listView]);
+    }, [overlays.length, listView, closeList]);
+
+    /* ===================== Sesión y perfil ===================== */
+
+    async function login() {
+        try {
+            await loginWithGoogle();
+            notify("Sesión iniciada");
+        } catch {
+            notify("No se pudo iniciar sesión");
+        }
+    }
+
+    /**
+     * Entrar con Google. Lo que calificaste sin cuenta no se sube: si tu cuenta ya
+     * tenía calificaciones, mezclarlas pisaría unas con otras. Se avisa antes.
+     */
+    function requestLogin() {
+        if (user || localCount === 0) return login();
+        nav.open("confirm", {
+            title: "Antes de entrar",
+            body: `En este navegador tienes ${localCount} ${localCount === 1 ? "título calificado" : "títulos calificados"} sin cuenta. Al entrar vas a ver lo que ya tiene tu cuenta: lo de aquí no se sube ni se mezcla, para no pisar tus calificaciones. Si cierras sesión, lo vuelves a ver aquí.`,
+            confirmLabel: "Entrar de todos modos",
+            danger: false,
+            onConfirm: () => {
+                // El popup de Google tiene que salir dentro del mismo toque
+                login();
+                nav.close("confirm");
+            },
+        });
+    }
 
     /** Cambiar la foto: se recorta y comprime aquí mismo antes de guardarla. */
     async function handlePhoto(event) {
@@ -329,23 +292,15 @@ export default function App() {
             const dataUrl = await toAvatarDataUrl(file);
             await savePhoto(dataUrl);
             await social.publishProfile?.({ photo: dataUrl }); // que tus amigos la vean
-            setToast("Foto actualizada");
+            notify("Foto actualizada");
         } catch (error) {
-            setToast(error.message ?? "No se pudo usar esa imagen");
-        }
-    }
-
-    async function handleLogin() {
-        try {
-            await loginWithGoogle();
-            const moved = await mergeLocalIntoCloud();
-            setToast(moved ? `Sincronizadas ${moved} de tus pelis` : "Sesión iniciada");
-        } catch {
-            setToast("No se pudo iniciar sesión");
+            notify(error.message ?? "No se pudo usar esa imagen");
         }
     }
 
     const stats = useMemo(() => libraryStats(library, genres), [library, genres]);
+
+    /* ===================== Listas ===================== */
 
     const visibleList = useMemo(() => {
         if (listView?.kind !== "mine") return [];
@@ -356,19 +311,341 @@ export default function App() {
         return lists[listView.id];
     }, [lists, listView]);
 
+    const { sharedById, menuActions, listActions, watchedFromList, confirmLeave } = useListActions({
+        user,
+        library,
+        social,
+        nav,
+        notify,
+        decide,
+        restore,
+        forget,
+        people,
+        commitDecision,
+        forgetWithUndo,
+    });
+
     // La lista que estás viendo por dentro: una tuya o una en conjunto
     const openedList = useMemo(() => {
         if (!listView) return null;
         if (listView.kind === "mine") {
-            const label = LIST_NAMES[listView.id];
-            return { kind: "mine", id: listView.id, name: label, items: visibleList };
+            return { kind: "mine", id: listView.id, name: LIST_NAMES[listView.id], items: visibleList };
         }
-        const shared = social.lists.find((list) => list.id === listView.id);
-        return shared ? { ...shared, kind: "shared" } : null;
-    }, [listView, visibleList, social.lists]);
+        const shared = sharedById(listView.id);
+        return shared ? { ...shared, kind: "shared", items: social.listItems[shared.id] ?? [] } : null;
+    }, [listView, visibleList, sharedById, social.listItems]);
 
-    const deck = decks[type];
-    const current = deck[0];
+    function changeTab(next) {
+        nav.reset(); // al cambiar de pestaña se cierra lo que haya encima
+        setTab(next);
+    }
+
+    /* ===================== Links de entrada ===================== */
+
+    // ?lista=…, ?t=movie:123, ?u=usuario y ?l=token: se abren una sola vez al cargar
+    const handledLinks = useRef(false);
+    useEffect(() => {
+        if (handledLinks.current) return;
+        handledLinks.current = true;
+        const { lista, titulo, usuario, invitacion } = nav.initial;
+        if (lista) nav.openList(listFromParam(lista));
+        if (titulo && /^(movie|tv):\d+$/.test(titulo)) {
+            const [type, tmdbId] = titulo.split(":");
+            nav.open("detail", { item: { id: titulo, type, tmdbId: Number(tmdbId), title: "" } });
+        }
+        if (usuario) nav.open("addFriend", { username: usuario });
+        if (invitacion) nav.open("joinList", { token: invitacion });
+    }, [nav]);
+
+    /* ===================== Hojas ===================== */
+
+    function renderOverlay(overlay) {
+        const { id, kind, props } = overlay;
+        const close = () => nav.close(id);
+
+        switch (kind) {
+            case "detail": {
+                const entry = library[props.item.id];
+                // Un título abierto desde un link llega casi vacío: si ya está en tus listas, se usa eso
+                const item = props.item.title ? props.item : (entry ?? props.item);
+                return (
+                    <DetailSheet
+                        key={id}
+                        item={item}
+                        entry={entry}
+                        onClose={close}
+                        onDecide={handleDecide}
+                        onForget={() => {
+                            nav.close(id);
+                            forgetWithUndo(entry);
+                        }}
+                        friendOpinions={friendOpinions(item)}
+                        onShare={social.enabled ? (full) => nav.open("share", { item: full }) : null}
+                    />
+                );
+            }
+            case "stars":
+                return (
+                    <StarsPrompt
+                        key={id}
+                        item={props.item}
+                        entry={library[props.item.id]}
+                        onSave={(stars) =>
+                            props.purpose === "list"
+                                ? watchedFromList(props.listId, props.item, stars)
+                                : commitDecision(props.item, "liked", stars)
+                        }
+                        onSkip={props.purpose === "list" ? () => watchedFromList(props.listId, props.item, null) : null}
+                        onCancel={close}
+                    />
+                );
+            case "poster":
+                return <PosterViewer key={id} item={props.item} onClose={close} />;
+            case "search":
+                return <SearchSheet key={id} library={library} onOpen={(item) => nav.swap(id, "detail", { item })} onClose={close} />;
+            case "tonight":
+                return (
+                    <Tonight
+                        key={id}
+                        lists={lists}
+                        friendPicks={friendPicks}
+                        onFresh={freshPool}
+                        providers={providers}
+                        onClose={close}
+                        onOpen={(item) => nav.swap(id, "detail", { item })}
+                    />
+                );
+            case "friend":
+                return (
+                    <FriendSheet
+                        key={id}
+                        friend={props.friend}
+                        mine={library}
+                        theirs={social.libraries[props.friend.uid] ?? {}}
+                        onClose={close}
+                        onOpenItem={(item) => nav.swap(id, "detail", { item })}
+                        onRecommend={(item, friend) => social.recommend(item, friend).then(() => notify(`Se la mandaste a ${friend.name}`))}
+                        onRemove={(friend) =>
+                            nav.swap(id, "confirm", {
+                                title: `¿Dejar de ser amigos con ${friend.name}?`,
+                                body: "Ya no van a ver lo que califica cada quien ni podrán mandarse recomendaciones. Las listas que tienen juntos siguen igual.",
+                                confirmLabel: "Dejar de ser amigos",
+                                onConfirm: () => {
+                                    nav.close("confirm");
+                                    social
+                                        .remove(friend)
+                                        .then(() => notify("Listo, ya no son amigos"))
+                                        .catch(() => notify("No se pudo"));
+                                },
+                            })
+                        }
+                    />
+                );
+            case "who":
+                return <WhoLikedSheet key={id} item={props.item} opinions={friendOpinions(props.item)} onClose={close} />;
+            case "share":
+                return (
+                    <ShareSheet
+                        key={id}
+                        item={props.item ?? null}
+                        friends={social.friends}
+                        lists={social.lists}
+                        listItems={social.listItems}
+                        social={social}
+                        onToast={notify}
+                        // Al crear una lista desde aquí, se abre de una vez
+                        onClose={(createdId) => {
+                            if (typeof createdId !== "string") return close();
+                            setTab("lists");
+                            nav.openList({ kind: "shared", id: createdId });
+                        }}
+                    />
+                );
+            case "profile":
+                return (
+                    <ProfileEditor
+                        key={id}
+                        user={user}
+                        photo={photo}
+                        name={displayName}
+                        username={social.profile?.username}
+                        onSaveUsername={
+                            social.enabled
+                                ? async (nuevo) => {
+                                      try {
+                                          await social.changeUsername(nuevo);
+                                          notify("Usuario actualizado");
+                                          return null;
+                                      } catch (error) {
+                                          notify(error.message);
+                                          return error.message;
+                                      }
+                                  }
+                                : null
+                        }
+                        onPickPhoto={() => photoInput.current?.click()}
+                        onRemovePhoto={() => {
+                            savePhoto(null);
+                            social.publishProfile?.({ photo: null });
+                            notify("Foto quitada");
+                        }}
+                        onSave={(valor) => {
+                            if (valor === (displayName ?? "")) return;
+                            saveName(valor);
+                            social.publishProfile?.({ name: valor || user?.displayName || "Alguien" });
+                            notify("Perfil actualizado");
+                        }}
+                        onClose={close}
+                    />
+                );
+            case "addFriend":
+                return (
+                    <AddFriendSheet
+                        key={id}
+                        username={props.username}
+                        user={user}
+                        enabled={social.enabled}
+                        lookup={social.lookup}
+                        onLogin={requestLogin}
+                        onAdd={() =>
+                            social
+                                .invite(props.username)
+                                .then((nombre) => notify(`Invitación enviada a ${nombre}`))
+                                .catch((error) => notify(error.message))
+                                .finally(close)
+                        }
+                        onClose={close}
+                    />
+                );
+            case "joinList":
+                return (
+                    <JoinListSheet
+                        key={id}
+                        token={props.token}
+                        user={user}
+                        enabled={social.enabled}
+                        social={social}
+                        onLogin={requestLogin}
+                        onJoined={(invite) => {
+                            setJoiningId(invite.listId);
+                            setTab("lists");
+                            nav.openList({ kind: "shared", id: invite.listId });
+                            notify(`Ya estás en ${invite.name}`);
+                        }}
+                        onClose={close}
+                    />
+                );
+            case "confirm":
+                return <ConfirmSheet key={id} {...props} onClose={close} />;
+            case "menu": {
+                const item = props.item;
+                return (
+                    <ActionMenu
+                        key={id}
+                        title={item.title}
+                        subtitle={item.year ? String(item.year) : null}
+                        actions={menuActions(props, id)}
+                        onClose={close}
+                    />
+                );
+            }
+            case "invite": {
+                const list = sharedById(props.listId);
+                if (!list) return null;
+                return (
+                    <InviteToListSheet
+                        key={id}
+                        list={list}
+                        friends={social.friends}
+                        social={social}
+                        onToast={notify}
+                        onGoFriends={() => changeTab("friends")}
+                        onClose={close}
+                    />
+                );
+            }
+            case "listSettings": {
+                const list = sharedById(props.listId);
+                if (!list) return null;
+                return (
+                    <ListSettingsSheet
+                        key={id}
+                        list={list}
+                        people={(uid) => people(uid, list)}
+                        myUid={user?.uid}
+                        social={social}
+                        onToast={notify}
+                        onInvite={() => nav.swap(id, "invite", { listId: list.id })}
+                        onLeave={() => confirmLeave(list)}
+                        onClose={close}
+                    />
+                );
+            }
+            case "pick": {
+                const list = sharedById(props.listId);
+                if (!list) return null;
+                return (
+                    <ListPickSheet
+                        key={id}
+                        list={list}
+                        items={social.listItems[list.id] ?? []}
+                        context={seenContext}
+                        names={(uid) => (uid === user?.uid ? "tú" : (people(uid, list).name ?? "alguien"))}
+                        onOpen={(item) => nav.swap(id, "detail", { item })}
+                        onClose={close}
+                    />
+                );
+            }
+            default:
+                return null;
+        }
+    }
+
+    /* ===================== Pantallas ===================== */
+
+    function renderListView() {
+        if (openedList) {
+            return (
+                <ListDetail
+                    key={openedList.id}
+                    list={openedList}
+                    myUid={user?.uid ?? null}
+                    library={library}
+                    libraries={social.libraries}
+                    people={(uid) => people(uid, openedList)}
+                    actions={listActions(openedList)}
+                />
+            );
+        }
+        // Una lista en conjunto abierta desde un link, que no se puede (o aún no se puede) mostrar
+        const [title, text] = !social.enabled
+            ? ["Entra para ver esta lista", "Las listas en conjunto viven en tu cuenta."]
+            : !social.listsReady || joiningId === listView.id
+              ? ["Abriendo la lista…", ""]
+              : ["No encontré esta lista", "Puede que la hayan borrado o que no estés invitado. Pide que te inviten."];
+        return (
+            <main className="screen is-detail">
+                <header className="detail-bar">
+                    <button type="button" className="icon-btn" onClick={nav.closeList} aria-label="Regresar">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M15 19l-7-7 7-7" />
+                        </svg>
+                    </button>
+                </header>
+                <div className="empty">
+                    <b>{title}</b>
+                    {text && <p>{text}</p>}
+                    {!social.enabled && cloudEnabled && (
+                        <button type="button" className="btn btn-primary" onClick={requestLogin}>
+                            Entrar con Google
+                        </button>
+                    )}
+                </div>
+            </main>
+        );
+    }
+
+    const current = deck.deck[0];
 
     return (
         <div className="app">
@@ -384,101 +661,23 @@ export default function App() {
             </header>
 
             {tab === "explorar" && (
-                <main className="screen is-deck">
-                    <div className="deck-head">
-                        <div className="segmented">
-                            <button type="button" className={deckType === "movie" ? "is-active" : ""} onClick={() => setDeckType("movie")}>
-                                Películas
-                            </button>
-                            <button type="button" className={deckType === "tv" ? "is-active" : ""} onClick={() => setDeckType("tv")}>
-                                Series
-                            </button>
-                        </div>
-                        <span className="action-hint" style={{ marginLeft: "auto", paddingBottom: 0 }}>
-                            {taste.ready ? `A tu gusto · ${taste.rated} calificadas` : `Calibrando · ${taste.rated}/5`}
-                        </span>
-
-                    </div>
-
-                    <div className="deck-layout">
-                        <div className="deck-col">
-                            <div className="deck">
-                        {error && (
-                            <div className="empty">
-                                <b>No se pudo cargar el catálogo</b>
-                                <p>{error}</p>
-                                <button type="button" className="btn btn-primary" onClick={() => loadMore(type, true)}>
-                                    Reintentar
-                                </button>
-                            </div>
-                        )}
-                        {!error && !current && loading && (
-                            <div className="card card-skeleton" aria-label="Cargando títulos">
-                                <span className="shine" />
-                            </div>
-                        )}
-                        {!error && !current && !loading && (
-                            <div className="empty">
-                                <b>Ya no hay más por ahora</b>
-                                <p>Ya calificaste casi todo lo que había. Busca más o revisa tus listas.</p>
-                                <button
-                                    type="button"
-                                    className="btn btn-primary"
-                                    onClick={() => {
-                                        emptyTries.current[type] = 0;
-                                        loadMore(type);
-                                    }}
-                                >
-                                    Buscar más títulos
-                                </button>
-                            </div>
-                        )}
-
-                        {/* Solo se montan dos tarjetas: la de arriba y la que asoma debajo */}
-                        {deck.slice(0, 2).reverse().map((item, index, array) => {
-                            const isTop = index === array.length - 1;
-                            return isTop ? (
-                                <SwipeCard
-                                    key={item.id}
-                                    item={item}
-                                    genreNames={genres}
-                                    friends={friendsBadge(social.ratings[item.id])}
-                                    onDecide={(decision) => handleDecide(item, decision)}
-                                    // En escritorio la ficha ya está fija a la derecha, así que
-                                    // un clic en la tarjeta muestra el póster en grande
-                                    onOpen={() => (isDesktop ? setPosterItem(item) : setOpenItem(item))}
-                                    onPoster={() => setPosterItem(item)}
-                                    onFriends={() => setWhoItem(item)}
-                                />
-                            ) : (
-                                <article key={item.id} className="card" style={{ transform: "scale(0.96) translateY(10px)", opacity: 0.75 }}>
-                                    {item.poster ? <img className="card-poster" src={item.poster} alt="" /> : <div className="card-fallback" />}
-                                </article>
-                            );
-                        })}
-                    </div>
-
-                            {current && <ActionButtons onDecide={(decision) => handleDecide(current, decision)} />}
-                        </div>
-
-                        {isDesktop && (
-                            <DetailPanel
-                                item={current}
-                                entry={current ? library[current.id] : null}
-                                onDecide={handleDecide}
-                                onForget={forget}
-                                friendOpinions={friendOpinions(current)}
-                                onShare={social.enabled ? setShareItem : null}
-                            />
-                        )}
-                    </div>
-                    {isDesktop && current && (
-                        <p className="keys-hint">
-                            Atajos: <kbd>→</kbd> ya la vi · <kbd>↑</kbd> quiero verla · <kbd>←</kbd> no la he visto ·{" "}
-                            <kbd>⌘Z</kbd> deshacer
-                        </p>
-                    )}
-                </main>
+                <ExploreScreen
+                    deckType={deckType}
+                    onDeckType={setDeckType}
+                    taste={taste}
+                    deck={deck}
+                    genres={genres}
+                    ratings={social.ratings}
+                    library={library}
+                    isDesktop={isDesktop}
+                    onDecide={handleDecide}
+                    onOpen={(item) => nav.open("detail", { item })}
+                    onPoster={(item) => nav.open("poster", { item })}
+                    onFriends={(item) => nav.open("who", { item })}
+                    onForget={(id) => library[id] && forgetWithUndo(library[id])}
+                    friendOpinions={friendOpinions}
+                    onShare={social.enabled ? (item) => nav.open("share", { item }) : null}
+                />
             )}
 
             {tab === "lists" && !listView && (
@@ -486,14 +685,16 @@ export default function App() {
                     <ListsScreen
                         lists={lists}
                         sharedLists={social.lists}
-                        profiles={social.profiles}
+                        listItems={social.listItems}
+                        context={seenContext}
+                        people={people}
                         canShare={social.enabled}
-                        onOpenMine={(id) => setListView({ kind: "mine", id })}
-                        onOpenShared={(list) => setListView({ kind: "shared", id: list.id })}
-                        onNewShared={() => setShareItem(true)}
-                        onTonight={() => setShowTonight(true)}
+                        onOpenMine={(id) => nav.openList({ kind: "mine", id })}
+                        onOpenShared={(list) => nav.openList({ kind: "shared", id: list.id })}
+                        onNewShared={() => nav.open("share", { item: null })}
+                        onTonight={() => nav.open("tonight")}
                     />
-                    <button type="button" className="fab" onClick={() => setShowSearch(true)} aria-label="Buscar un título">
+                    <button type="button" className="fab" onClick={() => nav.open("search")} aria-label="Buscar un título">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
                             <circle cx="11" cy="11" r="6.5" />
                             <path d="M16 16l4.5 4.5" />
@@ -502,17 +703,7 @@ export default function App() {
                 </>
             )}
 
-            {tab === "lists" && listView && openedList && (
-                <ListDetail
-                    list={openedList}
-                    friends={social.friends}
-                    social={social}
-                    onBack={() => setListView(null)}
-                    onOpenItem={setOpenItem}
-                    onInvite={() => setShareItem(true)}
-                    onToast={setToast}
-                />
-            )}
+            {tab === "lists" && listView && renderListView()}
 
             {tab === "friends" && (
                 <FriendsScreen
@@ -520,86 +711,27 @@ export default function App() {
                     user={user}
                     social={social}
                     library={library}
-                    onLogin={handleLogin}
-                    onOpenFriend={setOpenFriend}
-                    onOpenItem={setOpenItem}
-                    onToast={setToast}
+                    onLogin={requestLogin}
+                    onOpenFriend={(friend) => nav.open("friend", { friend })}
+                    onOpenItem={(item) => nav.open("detail", { item })}
+                    onToast={notify}
                 />
             )}
 
             {tab === "profile" && (
-                <main className="screen">
-                    <div className="profile-card">
-                        <div className="profile-top">
-                            <Avatar user={{ ...user, displayName }} photo={photo} />
-                            <div style={{ minWidth: 0, flex: 1 }}>
-                                <b>{displayName ?? "Sin cuenta"}</b>
-                                <p className="sheet-meta">
-                                    {user ? "Tus listas se sincronizan" : cloudEnabled ? "Tus listas viven solo en este navegador" : "Modo local"}
-                                </p>
-                            </div>
-                            {
-                                <button
-                                    type="button"
-                                    className="icon-btn"
-                                    onClick={() => setEditingProfile(true)}
-                                    aria-label="Editar perfil"
-                                    title="Editar perfil"
-                                >
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M4 20h4L19 9a2.1 2.1 0 00-3-3L5 17z" />
-                                    </svg>
-                                </button>
-                            }
-                        </div>
-                        <input ref={photoInput} type="file" accept="image/*" hidden onChange={handlePhoto} />
-                        {cloudEnabled ? (
-                            user ? (
-                                <button type="button" className="btn btn-ghost" onClick={logout}>Cerrar sesión</button>
-                            ) : (
-                                <button type="button" className="btn btn-primary" onClick={handleLogin}>Entrar con Google</button>
-                            )
-                        ) : (
-                            <p className="notice">
-                                Falta configurar Firebase: agrega las variables <b>VITE_FIREBASE_*</b> en tu archivo <b>.env</b> para
-                                sincronizar tus listas entre dispositivos.
-                            </p>
-                        )}
-                    </div>
-
-                    <h2 className="section-title">Tus números</h2>
-                    <dl className="stats-grid">
-                        <div><dt>Vistas</dt><dd>{stats.liked + stats.disliked}</dd></div>
-                        <div><dt>Pendientes</dt><dd>{stats.watchlist}</dd></div>
-                        <div><dt>Horas</dt><dd>{stats.hours}</dd></div>
-                        <div><dt>Promedio</dt><dd>{stats.averageStars ? `★ ${stats.averageStars}` : "—"}</dd></div>
-                    </dl>
-
-                    <h2 className="section-title">Tus géneros</h2>
-                    {stats.topGenres.length === 0 ? (
-                        <p className="notice">Califica unas cuantas y aquí vas a ver qué te late de verdad.</p>
-                    ) : (
-                        <div className="bars">
-                            {stats.topGenres.map((genre) => (
-                                <div key={genre.id} className="bar-row">
-                                    <span>{genre.name}</span>
-                                    <span className="bar"><i style={{ width: `${Math.round(genre.score * 100)}%` }} /></span>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    {!hasApiKey && (
-                        <p className="notice" style={{ marginTop: 16 }}>
-                            <b>Modo demo:</b> estás viendo unos cuantos títulos de ejemplo. Agrega tu llave{" "}
-                            <b>VITE_TMDB_KEY</b> en <b>.env</b> para usar el catálogo completo de TMDB.
-                        </p>
-                    )}
-                    <p className="notice">
-                        Datos de películas y series por <b>TMDB</b>. Dónde verlas, por <b>JustWatch</b>.
-                    </p>
-                </main>
+                <ProfileScreen
+                    user={user}
+                    cloudEnabled={cloudEnabled}
+                    displayName={displayName}
+                    photo={photo}
+                    stats={stats}
+                    localCount={localCount}
+                    onEdit={() => nav.open("profile")}
+                    onLogin={requestLogin}
+                    onLogout={logout}
+                />
             )}
+            <input ref={photoInput} type="file" accept="image/*" hidden onChange={handlePhoto} />
 
             <nav className="tabbar">
                 {TABS.map((item) => (
@@ -607,10 +739,8 @@ export default function App() {
                         key={item.id}
                         type="button"
                         className={tab === item.id ? "is-active" : ""}
-                        onClick={() => {
-                            setTab(item.id);
-                            setListView(null); // al cambiar de pestaña se sale de la lista abierta
-                        }}
+                        aria-current={tab === item.id ? "page" : undefined}
+                        onClick={() => changeTab(item.id)}
                     >
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                             <path d={ICONS[item.id]} />
@@ -623,144 +753,16 @@ export default function App() {
                 ))}
             </nav>
 
-            {openItem && (
-                <DetailSheet
-                    item={openItem}
-                    entry={library[openItem.id]}
-                    onClose={() => setOpenItem(null)}
-                    onDecide={handleDecide}
-                    onForget={(id) => {
-                        forget(id);
-                        setOpenItem(null);
-                        setToast("Quitada de tus listas");
-                    }}
-                    friendOpinions={friendOpinions(openItem)}
-                    onShare={social.enabled ? setShareItem : null}
-                />
-            )}
-
-            {posterItem && <PosterViewer item={posterItem} onClose={() => setPosterItem(null)} />}
-
-            {showSearch && (
-                <SearchSheet
-                    library={library}
-                    onOpen={(item) => {
-                        setShowSearch(false);
-                        setOpenItem(item);
-                    }}
-                    onClose={() => setShowSearch(false)}
-                />
-            )}
-
-            {showTonight && (
-                <Tonight
-                    lists={lists}
-                    friendPicks={friendPicks}
-                    onFresh={freshPool}
-                    providers={providers}
-                    onClose={() => setShowTonight(false)}
-                    onOpen={(item) => {
-                        setShowTonight(false);
-                        setOpenItem(item);
-                    }}
-                />
-            )}
-
-            {openFriend && (
-                <FriendSheet
-                    friend={openFriend}
-                    mine={library}
-                    theirs={social.libraries[openFriend.uid] ?? {}}
-                    onClose={() => setOpenFriend(null)}
-                    onOpenItem={(item) => {
-                        setOpenFriend(null);
-                        setOpenItem(item);
-                    }}
-                    onRecommend={(item, friend) =>
-                        social.recommend(item, friend).then(() => setToast(`Se la mandaste a ${friend.name}`))
-                    }
-                    onRemove={(friend) => {
-                        social.remove(friend);
-                        setOpenFriend(null);
-                        setToast("Listo, ya no son amigos");
-                    }}
-                />
-            )}
-
-            {invitacion && (
-                <AddFriendSheet
-                    username={invitacion}
-                    person={invitado}
-                    user={user}
-                    onLogin={handleLogin}
-                    onAdd={() =>
-                        social
-                            .invite(invitacion)
-                            .then((nombre) => setToast(`Invitación enviada a ${nombre}`))
-                            .catch((error) => setToast(error.message))
-                            .finally(() => setInvitacion(null))
-                    }
-                    onClose={() => setInvitacion(null)}
-                />
-            )}
-
-            {editingProfile && (
-                <ProfileEditor
-                    user={user}
-                    photo={photo}
-                    name={displayName}
-                    username={social.profile?.username}
-                    onSaveUsername={
-                        social.enabled
-                            ? async (nuevo) => {
-                                  try {
-                                      await social.changeUsername(nuevo);
-                                      setToast("Usuario actualizado");
-                                      return null;
-                                  } catch (error) {
-                                      setToast(error.message);
-                                      return error.message;
-                                  }
-                              }
-                            : null
-                    }
-                    onPickPhoto={() => photoInput.current?.click()}
-                    onRemovePhoto={() => {
-                        savePhoto(null);
-                        social.publishProfile?.({ photo: null });
-                        setToast("Foto quitada");
-                    }}
-                    onSave={(valor) => {
-                        if (valor === (displayName ?? "")) return;
-                        saveName(valor);
-                        social.publishProfile?.({ name: valor || user?.displayName || "Alguien" });
-                        setToast("Perfil actualizado");
-                    }}
-                    onClose={() => setEditingProfile(false)}
-                />
-            )}
-
-            {whoItem && (
-                <WhoLikedSheet
-                    item={whoItem}
-                    opinions={friendOpinions(whoItem)}
-                    onClose={() => setWhoItem(null)}
-                />
-            )}
-
-            {shareItem && (
-                <ShareSheet
-                    item={shareItem === true ? null : shareItem}
-                    friends={social.friends}
-                    lists={social.lists}
-                    social={social}
-                    onClose={() => setShareItem(null)}
-                    onToast={setToast}
-                />
-            )}
+            {overlays.map(renderOverlay)}
 
             {showTips && tab === "explorar" && current && (
-                <div className="tips" onClick={() => { setShowTips(false); localStorage.setItem(TIPS_KEY, "1"); }}>
+                <div
+                    className="tips"
+                    onClick={() => {
+                        setShowTips(false);
+                        localStorage.setItem(TIPS_KEY, "1");
+                    }}
+                >
                     <div className="tips-card">
                         <h2>Así se usa</h2>
                         <ul>
@@ -775,32 +777,26 @@ export default function App() {
                 </div>
             )}
 
-            {pendingLike && (
-                <StarsPrompt
-                    item={pendingLike}
-                    entry={library[pendingLike.id]}
-                    onSave={(stars) => commitDecision(pendingLike, "liked", stars)}
-                    onCancel={() => setPendingLike(null)}
-                />
-            )}
-
-            {!authReady && cloudEnabled && <p className="toast">Conectando…</p>}
-            {toast && (
-                <p className="toast" onClick={() => setToast(null)}>
-                    {toast.text ?? toast}
-                    {toast.undo && (
-                        <button
-                            type="button"
-                            onClick={() => {
-                                undo(toast.undo);
-                                setToast(null);
-                            }}
-                        >
-                            Deshacer
-                        </button>
-                    )}
-                </p>
-            )}
+            <div className="toast-slot" role="status" aria-live="polite">
+                {!authReady && cloudEnabled && <p className="toast">Conectando…</p>}
+                {toast && (
+                    <p key={toast.id} className="toast" onClick={() => setToast(null)}>
+                        {toast.text}
+                        {toast.undo && (
+                            <button
+                                type="button"
+                                onClick={(event) => {
+                                    event.stopPropagation();
+                                    toast.undo();
+                                    setToast(null);
+                                }}
+                            >
+                                Deshacer
+                            </button>
+                        )}
+                    </p>
+                )}
+            </div>
         </div>
     );
 }

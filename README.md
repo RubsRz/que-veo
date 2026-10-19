@@ -37,8 +37,16 @@ armas tus listas y la app aprende qué te gusta para irte mostrando mejores opci
 - **Qué ver juntos**: lo que los dos tienen pendiente, lo que a esa persona le encantó y tú no
   has visto, y lo que tú le puedes recomendar.
 - **Recomendaciones directas**: le mandas un título y le aparece en su pantalla de Amigos.
-- **Listas en conjunto**: un “pendientes” compartido donde cualquiera agrega títulos y todos
-  ven lo que falta; se marca lo que ya vieron.
+- **Listas en conjunto**: un “pendientes” compartido donde cualquiera agrega títulos.
+  - Se invita desde la lista (el **+** de arriba) a tus amigos, o con un **link** para quien
+    todavía no lo es (`que-veo.netlify.app/?l=…`).
+  - Cada quien palomea lo que **ya vio**, y al hacerlo la califica (va a su biblioteca). Si ya la
+    habías calificado en Explorar, cuenta sola. Lo que ya vieron todos se archiva en
+    *“Ya las vieron todos”*; con *“Solo yo”* ves lo que te falta a ti.
+  - Nada desaparece de golpe: quitar algo se puede deshacer y pasa 30 días en *“Quitadas”*.
+  - **Votos** 👍 para decidir, y un **“¿Qué vemos hoy?”** del grupo que elige de lo que nadie
+    ha visto, con más chance para lo más votado.
+  - Nombre, emoji y color propios; solo el último en salirse puede borrarla.
 - **Lo que anda viendo tu banda**: lo que le gustó a dos o más de tus amigos y tú no has visto.
 
 Lo que descartas no se comparte nunca, y tus amigos solo pueden *leer* tus calificaciones.
@@ -76,12 +84,15 @@ npm run dev
 
 4. **Configuración del proyecto → Tus apps → Web**: copia los valores a `.env`.
 
-Sin Firebase, las listas se guardan en el navegador. Al entrar con Google por primera vez,
-lo que tenías local se sube a tu cuenta.
+Sin Firebase, las listas se guardan en el navegador. Lo que califiques sin cuenta **no se sube**
+al entrar con Google, para no pisar lo que tu cuenta ya tenía: la app avisa antes de entrar, y
+si cierras sesión lo vuelves a ver.
 
 ## Cómo está armado
 
-La app tiene cuatro pantallas: **Explorar**, **Listas**, **Amigos** y **Perfil**.
+La app tiene cuatro pantallas: **Explorar**, **Listas**, **Amigos** y **Perfil**. Una lista
+abierta y la ficha de un título tienen su propio link (`?lista=…`, `?t=movie:123`), y el botón
+de atrás del celular cierra la hoja de arriba en vez de sacarte de la app.
 
 ```
 src/lib/tmdb.js     ← catálogo: explorar, buscar, ficha, plataformas (con modo demo)
@@ -90,6 +101,8 @@ src/lib/ratings.js  ← qué significa cada media estrella
 src/lib/library.js  ← tus listas: Firestore si hay sesión, localStorage si no
 src/lib/social.js   ← afinidad, qué ver juntos y quién opinó qué (sin Firebase de por medio)
 src/lib/friends.js  ← amigos, recomendaciones y listas en conjunto, en vivo
+src/lib/useDeck.js  ← la baraja de Explorar: se rellena sola y no repite lo decidido
+src/lib/useNavigation.js ← lista abierta y hojas encima, todo en el historial (el "atrás" funciona)
 src/components/     ← tarjeta deslizable, pósters, ficha, amigos y selector del día
 src/components/Sheet.jsx     ← la hoja que usan todas las pantallas emergentes
 src/components/SwipeCard.jsx ← los gestos de la baraja
@@ -108,9 +121,9 @@ Dos piezas se llevan el cuidado extra porque en el celular es donde se siente la
   Escape y jalarla hacia abajo) y nunca puede quedar montada "a medias".
 
 La lógica de gustos y la social están separadas de React y no tocan el navegador, así que se
-prueban solas: **57 pruebas** cubren el perfil de géneros, el arranque en frío, el orden de la
+prueban solas: **66 pruebas** cubren el perfil de géneros, el arranque en frío, el orden de la
 baraja, los filtros de “qué vemos hoy”, el cálculo de afinidad, quién opinó de cada título y
-qué proponerles para ver juntos.
+qué proponerles para ver juntos, y en las listas en conjunto quién ya vio qué y qué sale en el dado.
 
 ```bash
 npm test

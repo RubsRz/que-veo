@@ -106,24 +106,90 @@ service cloud.firestore {
         return get(/databases/$(database)/documents/lists/$(listId)).data.members;
       }
 
-      allow read, delete: if signedIn() && me() in resource.data.members;
+      function changed() {
+        return request.resource.data.diff(resource.data).affectedKeys();
+      }
+
+      // Desde dentro se puede invitar a más gente (sin sacar a nadie) y cambiar
+      // nombre, emoji, color o el link. Quién la creó y cuándo no se tocan.
+      function memberUpdate() {
+        return me() in resource.data.members
+          && me() in request.resource.data.members
+          && request.resource.data.members.toSet().hasAll(resource.data.members.toSet())
+          && changed().hasOnly(['members', 'profiles', 'name', 'emoji', 'color', 'inviteToken']);
+      }
+
+      // Salirse uno mismo, y nada más: así nadie se queda con la lista corriendo a los demás
+      function leave() {
+        return me() in resource.data.members
+          && request.resource.data.members.toSet() == resource.data.members.toSet().difference([me()].toSet())
+          && changed().hasOnly(['members']);
+      }
+
+      // Entrar con un link: hay que traer el token de una invitación de esta lista,
+      // y solo puedes agregarte a ti (con tu nombre y tu foto). El token va en tu
+      // propia llave de `joins`: si fuera un campo común, quedaría guardado tras el
+      // primero que entra y cualquiera podría pasar sin traerlo.
+      function joinWithLink() {
+        let token = request.resource.data.joins[me()];
+        let invite = /databases/$(database)/documents/listInvites/$(token);
+        return !(me() in resource.data.members)
+          && request.resource.data.joins.diff(resource.data.get('joins', {})).affectedKeys().hasOnly([me()])
+          && token is string
+          && exists(invite)
+          && get(invite).data.listId == listId
+          && request.resource.data.members.toSet() == resource.data.members.toSet().union([me()].toSet())
+          && changed().hasOnly(['members', 'profiles', 'joins'])
+          && request.resource.data.profiles.diff(resource.data.get('profiles', {})).affectedKeys().hasOnly([me()]);
+      }
+
+      allow read: if signedIn() && me() in resource.data.members;
       allow create: if signedIn()
         && me() in request.resource.data.members
         && request.resource.data.createdBy == me();
-      // Desde dentro solo se puede invitar a más gente (sin sacar a nadie) o salirse
-      // uno mismo: así nadie se queda con la lista corriendo a los demás.
-      allow update: if signedIn()
-        && me() in resource.data.members
-        && (
-             (me() in request.resource.data.members
-               && request.resource.data.members.toSet().hasAll(resource.data.members.toSet()))
-             || request.resource.data.members.toSet()
-                  == resource.data.members.toSet().difference([me()].toSet())
-           );
+      allow update: if signedIn() && (memberUpdate() || leave() || joinWithLink());
+      // Solo la borra el último que queda: nadie le tumba la lista a los demás
+      allow delete: if signedIn() && resource.data.members == [me()];
 
       match /items/{itemId} {
-        allow read, write: if signedIn() && me() in members();
+        // Las palomitas y los votos son de cada quien: solo tocas tu propia llave
+        function onlyMine(field) {
+          return request.resource.data.get(field, {}).diff(resource.data.get(field, {})).affectedKeys().hasOnly([me()]);
+        }
+
+        function itemUpdate() {
+          let keys = request.resource.data.diff(resource.data).affectedKeys();
+          return keys.hasOnly(['watchedBy', 'votes', 'removedAt', 'removedBy', 'addedBy', 'addedAt', 'watched', 'watchedAt'])
+            && (!keys.hasAny(['watchedBy']) || onlyMine('watchedBy'))
+            && (!keys.hasAny(['votes']) || onlyMine('votes'))
+            && (!keys.hasAny(['addedBy']) || request.resource.data.addedBy.uid == me())
+            && (!keys.hasAny(['removedBy']) || request.resource.data.removedBy == null || request.resource.data.removedBy.uid == me())
+            // La palomita vieja (una para todos) solo se puede quitar, para pasar a la nueva
+            && (!keys.hasAny(['watched']) || request.resource.data.get('watched', false) == false);
+        }
+
+        allow read, delete: if signedIn() && me() in members();
+        allow create: if signedIn() && me() in members() && request.resource.data.addedBy.uid == me();
+        allow update: if signedIn() && me() in members() && itemUpdate();
       }
+    }
+
+    // Links de invitación a una lista. Como los códigos de usuario: solo se consulta
+    // el token exacto que te pasaron, nunca "todos". El token es la llave.
+    match /listInvites/{token} {
+      function listOf(listId) {
+        return get(/databases/$(database)/documents/lists/$(listId)).data;
+      }
+
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn()
+        && request.resource.data.by.uid == me()
+        && me() in listOf(request.resource.data.listId).members;
+      allow update: if signedIn()
+        && me() in listOf(resource.data.listId).members
+        && request.resource.data.listId == resource.data.listId;
+      allow delete: if signedIn() && me() in listOf(resource.data.listId).members;
     }
   }
 }

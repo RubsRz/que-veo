@@ -4,7 +4,7 @@ import Stars from "./Stars";
 import { ratingInfo } from "../lib/ratings";
 
 /** Al marcar "ya la vi" se pide la calificación, y siempre se confirma. */
-export default function StarsPrompt({ item, entry, onSave, onCancel }) {
+export default function StarsPrompt({ item, entry, onSave, onCancel, onSkip = null }) {
     const [stars, setStars] = useState(entry?.stars ?? 0);
     const info = ratingInfo(stars);
 
@@ -14,9 +14,16 @@ export default function StarsPrompt({ item, entry, onSave, onCancel }) {
             title="¿Qué tal estuvo?"
             subtitle={item.title}
             footer={
-                <button type="button" className="btn btn-primary btn-wide" disabled={!stars} onClick={() => onSave(stars)}>
-                    {stars ? `Guardar ${stars}★` : "Elige una calificación"}
-                </button>
+                <>
+                    <button type="button" className="btn btn-primary btn-wide" disabled={!stars} onClick={() => onSave(stars)}>
+                        {stars ? `Guardar ${stars}★` : "Elige una calificación"}
+                    </button>
+                    {onSkip && (
+                        <button type="button" className="btn btn-ghost btn-wide" style={{ marginTop: 8 }} onClick={onSkip}>
+                            Marcarla vista sin calificar
+                        </button>
+                    )}
+                </>
             }
         >
             <div className="stars-prompt">
