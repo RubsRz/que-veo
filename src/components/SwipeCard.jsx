@@ -22,7 +22,7 @@ const DIRECTIONS = { right: "liked", left: "skipped", up: "watchlist" };
  *   · mientras arrastras no se re-dibuja nada: se mueve el nodo directo, por eso
  *     va fluido hasta en un teléfono viejo.
  */
-export default function SwipeCard({ item, onDecide, onOpen, onPoster, onFriends, genreNames, friends = null }) {
+export default function SwipeCard({ item, onDecide, onOpen, onPoster, onFriends, genreNames, friends = null, covered = false }) {
     const card = useRef(null);
     const stamps = useRef({});
     const gesture = useRef(null);
@@ -36,6 +36,18 @@ export default function SwipeCard({ item, onDecide, onOpen, onPoster, onFriends,
         paint(0, 0);
         return () => clearTimeout(holdTimer.current);
     }, [item.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Deslizarla a la derecha pide calificar. Si esa hoja se cierra y la tarjeta sigue
+    // aquí es que no se guardó (✕, tocar afuera, "atrás"): regresa a su lugar.
+    const wasCovered = useRef(covered);
+    useEffect(() => {
+        if (wasCovered.current && !covered && card.current) {
+            setLeaving(null);
+            card.current.style.opacity = "";
+            paint(0, 0, true);
+        }
+        wasCovered.current = covered;
+    }, [covered]); // eslint-disable-line react-hooks/exhaustive-deps
 
     function paint(x, y, animate = false) {
         const node = card.current;

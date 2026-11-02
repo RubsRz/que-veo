@@ -716,6 +716,7 @@ export default function App() {
                     onShare={social.enabled ? (item) => nav.open("share", { item }) : null}
                     myPlatforms={platforms}
                     onPickPlatforms={goToPlatforms}
+                    covered={overlays.length > 0}
                 />
             )}
 

@@ -22,6 +22,7 @@ export default function ExploreScreen({
     onShare,
     myPlatforms,
     onPickPlatforms,
+    covered,
 }) {
     const { deck: cards, loading, error, retry, searchMore } = deck;
     const current = cards[0];
@@ -84,6 +85,7 @@ export default function ExploreScreen({
                                     onOpen={() => (isDesktop ? onPoster(item) : onOpen(item))}
                                     onPoster={() => onPoster(item)}
                                     onFriends={() => onFriends(item)}
+                                    covered={covered}
                                 />
                             ) : (
                                 <article key={item.id} className="card" style={{ transform: "scale(0.96) translateY(10px)", opacity: 0.75 }}>
